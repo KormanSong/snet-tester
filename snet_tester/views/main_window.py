@@ -43,6 +43,7 @@ MAIN_WINDOW_OBJECTS = {
     'txPanel': QtWidgets.QWidget,
     'rxPanel': QtWidgets.QWidget,
     'plotPanel': QtWidgets.QGroupBox,
+    'debugTabWidget': QtWidgets.QTabWidget,
 }
 
 PLOT_PANEL_OBJECTS = {
@@ -122,8 +123,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._fail_count = 0
 
         fixed_font = build_fixed_font()
-        self.tx_panel = TxPanelView(root=self.txPanel, font=fixed_font)
-        self.rx_panel = RxPanelView(root=self.rxPanel, font=fixed_font)
+        self.tx_panel = TxPanelView(root=self.txPanel, debug_root=self.debugTabWidget, font=fixed_font)
+        self.rx_panel = RxPanelView(root=self.rxPanel, debug_root=self.debugTabWidget, font=fixed_font)
 
         for name, child_type in PLOT_PANEL_OBJECTS.items():
             setattr(self, name, require_child(self.plotPanel, child_type, name))

@@ -1,4 +1,4 @@
-"""TX panel view — channel settings, run/stop/set, frame display."""
+"""TX panel view — channel settings, run/stop/set, frame display, quick set."""
 
 from typing import Optional
 
@@ -14,13 +14,10 @@ from ..protocol.codec import (
 from ..protocol.constants import FRAME_FIXED_FIELDS, HEX_DUMP_BYTES_PER_LINE, MAX_CHANNELS, PLACEHOLDER
 from ..protocol.types import FrameView, IoPayload
 from .helpers import (
-    build_line_edit_style,
     configure_plain_text_edit,
-    configure_value_label,
     ensure_table_shape,
     find_optional_child,
     require_child,
-    set_badge,
 )
 
 TX_PANEL_OBJECTS = {
@@ -28,8 +25,6 @@ TX_PANEL_OBJECTS = {
     'runButton': QtWidgets.QPushButton,
     'stopButton': QtWidgets.QPushButton,
     'setButton': QtWidgets.QPushButton,
-    'txFrameTable': QtWidgets.QTableWidget,
-    'txDataDump': QtWidgets.QPlainTextEdit,
     'ratioInput1': QtWidgets.QLineEdit,
     'ratioInput2': QtWidgets.QLineEdit,
     'ratioInput3': QtWidgets.QLineEdit,
@@ -44,33 +39,48 @@ TX_PANEL_OBJECTS = {
     'ratioRaw6': QtWidgets.QLabel,
 }
 
+TX_DEBUG_OBJECTS = {
+    'txFrameTable': QtWidgets.QTableWidget,
+    'txDataDump': QtWidgets.QPlainTextEdit,
+}
+
+
+def _format_ratio(value: float) -> str:
+    """Format ratio: 30 -> '30', 33.3 -> '33.3', 0 -> '0'."""
+    if value == int(value):
+        return str(int(value))
+    return f'{value:g}'
+
+
+def _parse_ratio(text: str) -> Optional[float]:
+    """Parse ratio text, return None if invalid."""
+    text = text.strip()
+    if not text:
+        return None
+    try:
+        v = float(text)
+        return max(0.0, min(100.0, v))
+    except ValueError:
+        return None
+
 
 class TxPanelView:
-    INPUT_STYLE_DEFAULT = build_line_edit_style('#FFFFFF')
-    INPUT_STYLE_APPLIED = build_line_edit_style('#E8F5E9', '#81C784')
-    INPUT_STYLE_DISABLED = build_line_edit_style('#F1F1F1', '#D0D0D0')
-
-    def __init__(self, root: QtWidgets.QWidget, font: QtGui.QFont):
+    def __init__(self, root: QtWidgets.QWidget, debug_root: QtWidgets.QWidget, font: QtGui.QFont):
         self._root = root
         self._font = font
         self._running = False
         self._applied_payload: Optional[IoPayload] = None
-        self._highlight_applied_inputs = False
         self._frame_items: dict[str, QtWidgets.QTableWidgetItem] = {}
 
         for name, child_type in TX_PANEL_OBJECTS.items():
             setattr(self, name, require_child(self._root, child_type, name))
 
-        self.txStateValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txStateValueLabel')
-        self.txChannelsValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txChannelsValueLabel')
-        self.txLastResultValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txLastResultValueLabel')
-        self.txFrameSeqValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txFrameSeqValueLabel')
-        self.txFrameCmdValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txFrameCmdValueLabel')
-        self.txFrameLenValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txFrameLenValueLabel')
-        self.txFrameTotalValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txFrameTotalValueLabel')
+        for name, child_type in TX_DEBUG_OBJECTS.items():
+            setattr(self, name, require_child(debug_root, child_type, name))
+
         self.txStatusLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txStatusLabel')
         self.appliedLabel = find_optional_child(self._root, QtWidgets.QLabel, 'appliedLabel')
-        self.txFrameMetaLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txFrameMetaLabel')
+        self.txFrameMetaLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'txFrameMetaLabel')
 
         self._ratio_inputs: list[QtWidgets.QLineEdit] = [
             getattr(self, f'ratioInput{i}') for i in range(1, MAX_CHANNELS + 1)
@@ -83,9 +93,9 @@ class TxPanelView:
         self.channelCountCombo.addItems([str(i) for i in range(1, MAX_CHANNELS + 1)])
         self.channelCountCombo.currentIndexChanged.connect(self._on_channel_count_changed)
 
+        validator = QtGui.QDoubleValidator(0.0, 100.0, 2)
+        validator.setNotation(QtGui.QDoubleValidator.StandardNotation)
         for inp in self._ratio_inputs:
-            validator = QtGui.QDoubleValidator(0.0, 100.0, 3, inp)
-            validator.setNotation(QtGui.QDoubleValidator.StandardNotation)
             inp.setValidator(validator)
             inp.setFont(font)
             inp.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
@@ -95,19 +105,32 @@ class TxPanelView:
             lbl.setFont(font)
             lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
-        for attr in (
-            'txStateValueLabel', 'txChannelsValueLabel', 'txLastResultValueLabel',
-            'txFrameSeqValueLabel', 'txFrameCmdValueLabel', 'txFrameLenValueLabel',
-            'txFrameTotalValueLabel',
-        ):
-            label = getattr(self, attr)
-            if label is not None:
-                configure_value_label(label, font)
+        if self.txStatusLabel is not None:
+            self.txStatusLabel.setFont(font)
+        if self.appliedLabel is not None:
+            self.appliedLabel.setFont(font)
+        if self.txFrameMetaLabel is not None:
+            self.txFrameMetaLabel.setFont(font)
 
-        for attr in ('txStatusLabel', 'appliedLabel', 'txFrameMetaLabel'):
-            label = getattr(self, attr)
-            if label is not None:
-                label.setFont(font)
+        # Quick Set widgets (optional — searched from txPanel root)
+        self.allRatioInput = find_optional_child(self._root, QtWidgets.QLineEdit, 'allRatioInput')
+        self.applyAllButton = find_optional_child(self._root, QtWidgets.QPushButton, 'applyAllButton')
+        self.preset0Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset0Button')
+        self.preset25Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset25Button')
+        self.preset50Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset50Button')
+        self.preset75Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset75Button')
+        self.preset100Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset100Button')
+
+        if self.allRatioInput is not None:
+            self.allRatioInput.setValidator(validator)
+            self.allRatioInput.setFont(font)
+        if self.applyAllButton is not None:
+            self.applyAllButton.clicked.connect(self._on_apply_all_clicked)
+        for value, btn_name in [(0, 'preset0Button'), (25, 'preset25Button'), (50, 'preset50Button'),
+                                 (75, 'preset75Button'), (100, 'preset100Button')]:
+            btn = getattr(self, btn_name)
+            if btn is not None:
+                btn.clicked.connect(lambda _checked, v=value: self._on_preset_clicked(v))
 
         configure_plain_text_edit(self.txDataDump, font)
         self._configure_frame_table()
@@ -116,21 +139,21 @@ class TxPanelView:
 
     def _configure_frame_table(self):
         table = self.txFrameTable
-        ensure_table_shape(table, len(FRAME_FIXED_FIELDS), 1, 'txFrameTable')
+        ensure_table_shape(table, 1, len(FRAME_FIXED_FIELDS), 'txFrameTable')
         table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         table.setFocusPolicy(QtCore.Qt.NoFocus)
         table.setWordWrap(False)
         table.setFont(self._font)
-        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
-        for row, field in enumerate(FRAME_FIXED_FIELDS):
-            item = table.item(row, 0)
+        for col, field in enumerate(FRAME_FIXED_FIELDS):
+            item = table.item(0, col)
             if item is None:
                 item = QtWidgets.QTableWidgetItem(PLACEHOLDER)
-                table.setItem(row, 0, item)
-            item.setTextAlignment(int(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter))
+                table.setItem(0, col, item)
+            item.setTextAlignment(int(QtCore.Qt.AlignCenter))
             self._frame_items[field] = item
 
     def connect_actions(self, run_cb, stop_cb, set_cb):
@@ -153,30 +176,27 @@ class TxPanelView:
             self._ratio_raw_labels[i].setEnabled(enabled)
             if not enabled:
                 self._ratio_raw_labels[i].setText(PLACEHOLDER)
-                inp.setStyleSheet(self.INPUT_STYLE_DISABLED)
-        self._refresh_input_highlights()
 
-    def _input_matches_applied(self, ch_idx: int) -> bool:
-        if self._applied_payload is None or ch_idx >= self._applied_payload.channel_count:
-            return False
-        text = self._ratio_inputs[ch_idx].text().strip()
-        if not text:
-            return False
-        try:
-            pending = build_io_payload_model(channel_count=1, ratio_percents=[float(text)]).channels[0]
-        except ValueError:
-            return False
-        return pending.ratio_raw == self._applied_payload.channels[ch_idx].ratio_raw
+    # --- Quick Set ---
 
-    def _refresh_input_highlights(self):
+    def _on_preset_clicked(self, value: float):
+        text = _format_ratio(value)
         active = self._selected_channel_count()
-        for i, inp in enumerate(self._ratio_inputs):
-            if i >= active:
-                inp.setStyleSheet(self.INPUT_STYLE_DISABLED)
-            elif self._highlight_applied_inputs and self._input_matches_applied(i):
-                inp.setStyleSheet(self.INPUT_STYLE_APPLIED)
-            else:
-                inp.setStyleSheet(self.INPUT_STYLE_DEFAULT)
+        for i in range(active):
+            self._ratio_inputs[i].setText(text)
+
+    def _on_apply_all_clicked(self):
+        if self.allRatioInput is None:
+            return
+        parsed = _parse_ratio(self.allRatioInput.text())
+        if parsed is None:
+            return
+        text = _format_ratio(parsed)
+        active = self._selected_channel_count()
+        for i in range(active):
+            self._ratio_inputs[i].setText(text)
+
+    # --- Ratio preview ---
 
     def refresh_pending_previews(self, *_args):
         active = self._selected_channel_count()
@@ -184,40 +204,29 @@ class TxPanelView:
             if i >= active:
                 self._ratio_raw_labels[i].setText(PLACEHOLDER)
                 continue
-            text = inp.text().strip()
-            if not text:
+            parsed = _parse_ratio(inp.text())
+            if parsed is None:
                 self._ratio_raw_labels[i].setText(PLACEHOLDER)
                 continue
-            try:
-                payload = build_io_payload_model(channel_count=1, ratio_percents=[float(text)])
-            except ValueError:
-                self._ratio_raw_labels[i].setText(PLACEHOLDER)
-                continue
+            payload = build_io_payload_model(channel_count=1, ratio_percents=[parsed])
             self._ratio_raw_labels[i].setText(f'0x{payload.channels[0].ratio_raw:04X}')
-        self._refresh_input_highlights()
 
     def build_pending_payload(self) -> IoPayload:
         active = self._selected_channel_count()
         ratios = []
         for i in range(active):
-            text = self._ratio_inputs[i].text().strip()
-            if not text:
-                raise ValueError(f'CH{i + 1} ratio is empty')
-            ratios.append(float(text))
+            parsed = _parse_ratio(self._ratio_inputs[i].text())
+            if parsed is None:
+                raise ValueError(f'CH{i + 1} ratio is empty or invalid')
+            ratios.append(parsed)
         return build_io_payload_model(channel_count=active, ratio_percents=ratios)
 
     def show_validation_error(self, message: str):
-        if self.txLastResultValueLabel is not None:
-            set_badge(self.txLastResultValueLabel, 'INPUT ERROR', 'warn')
         if self.txStatusLabel is not None:
             self.txStatusLabel.setText(f"State: {'RUN' if self._running else 'STOP'} | {message}")
 
     def update_run_state(self, running: bool):
         self._running = running
-        if self.txStateValueLabel is not None:
-            set_badge(self.txStateValueLabel, 'RUN' if running else 'STOP', 'run' if running else 'stop')
-        if self.txChannelsValueLabel is not None and self._applied_payload is not None:
-            self.txChannelsValueLabel.setText(str(self._applied_payload.channel_count))
         if self.txStatusLabel is not None and self._applied_payload is not None:
             self.txStatusLabel.setText(
                 f"State: {'RUN' if running else 'STOP'} | Applied Ch.: {self._applied_payload.channel_count}"
@@ -227,14 +236,8 @@ class TxPanelView:
 
     def set_applied_payload(self, io_payload: IoPayload, highlight_inputs: bool = True):
         self._applied_payload = io_payload
-        self._highlight_applied_inputs = highlight_inputs
-        if self.txChannelsValueLabel is not None:
-            self.txChannelsValueLabel.setText(str(io_payload.channel_count))
         if self.appliedLabel is not None:
             self.appliedLabel.setText(f'Applied: {format_channel_summary(io_payload)}')
-        if highlight_inputs and self.txLastResultValueLabel is not None:
-            set_badge(self.txLastResultValueLabel, 'APPLIED', 'ok')
-        self._refresh_input_highlights()
         self.update_run_state(self._running)
 
     def update_frame(self, frame_view: Optional[FrameView], status: Optional[str] = None):
@@ -242,34 +245,14 @@ class TxPanelView:
             for item in self._frame_items.values():
                 item.setText(PLACEHOLDER)
             self.txDataDump.setPlainText(PLACEHOLDER)
-            if self.txFrameSeqValueLabel is not None:
-                self.txFrameSeqValueLabel.setText(PLACEHOLDER)
-            if self.txFrameCmdValueLabel is not None:
-                self.txFrameCmdValueLabel.setText(PLACEHOLDER)
-            if self.txFrameLenValueLabel is not None:
-                self.txFrameLenValueLabel.setText(PLACEHOLDER)
-            if self.txFrameTotalValueLabel is not None:
-                self.txFrameTotalValueLabel.setText(PLACEHOLDER)
             if self.txFrameMetaLabel is not None:
                 self.txFrameMetaLabel.setText('Frame: LEN: -- | Total: --')
-            if self.txLastResultValueLabel is not None:
-                set_badge(self.txLastResultValueLabel, (status or 'WAIT').upper(), 'neutral')
             return
 
         for field, hex_text in frame_view_fixed_rows(frame_view).items():
             self._frame_items[field].setText(hex_text)
         self.txDataDump.setPlainText(format_data_hexdump(frame_view.data, HEX_DUMP_BYTES_PER_LINE))
-        if self.txFrameSeqValueLabel is not None:
-            self.txFrameSeqValueLabel.setText(f'0x{frame_view.seq:02X}')
-        if self.txFrameCmdValueLabel is not None:
-            self.txFrameCmdValueLabel.setText(f'0x{frame_view.cmd:04X}')
-        if self.txFrameLenValueLabel is not None:
-            self.txFrameLenValueLabel.setText(f'0x{frame_view.length:02X}')
-        if self.txFrameTotalValueLabel is not None:
-            self.txFrameTotalValueLabel.setText(str(len(frame_view.raw)))
         if self.txFrameMetaLabel is not None:
             length_text = f'0x{frame_view.length:02X} ({frame_view.length} bytes)'
             total_text = f'{len(frame_view.raw)} bytes'
             self.txFrameMetaLabel.setText(f'Frame: LEN: {length_text} | Total: {total_text}')
-        if self.txLastResultValueLabel is not None:
-            set_badge(self.txLastResultValueLabel, (status or 'SENT').upper(), 'ok')

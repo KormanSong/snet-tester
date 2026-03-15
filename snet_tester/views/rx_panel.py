@@ -1,4 +1,4 @@
-"""RX panel view — frame display, monitor table."""
+"""RX panel view — monitor table, frame display."""
 
 from typing import Optional
 
@@ -19,22 +19,26 @@ from ..protocol.convert import (
 from ..protocol.types import FrameView, SnetChannelMonitor, SnetMonitorSnapshot
 from .helpers import (
     configure_plain_text_edit,
-    configure_value_label,
     ensure_table_shape,
     find_optional_child,
     require_child,
     set_badge,
 )
 
+# Widgets expected inside rxPanel (QGroupBox)
 RX_PANEL_OBJECTS = {
     'rxMonitorTable': QtWidgets.QTableWidget,
+}
+
+# Widgets inside debugTabWidget (searched from window root)
+RX_DEBUG_OBJECTS = {
     'rxFrameTable': QtWidgets.QTableWidget,
     'rxDataDump': QtWidgets.QPlainTextEdit,
 }
 
 
 class RxPanelView:
-    def __init__(self, root: QtWidgets.QWidget, font: QtGui.QFont):
+    def __init__(self, root: QtWidgets.QWidget, debug_root: QtWidgets.QWidget, font: QtGui.QFont):
         self._root = root
         self._font = font
         self._frame_items: dict[str, QtWidgets.QTableWidgetItem] = {}
@@ -47,36 +51,20 @@ class RxPanelView:
         for name, child_type in RX_PANEL_OBJECTS.items():
             setattr(self, name, require_child(self._root, child_type, name))
 
-        self.rxStatusValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxStatusValueLabel')
-        self.rxModeValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxModeValueLabel')
-        self.rxChannelsValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxChannelsValueLabel')
-        self.rxPressureValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxPressureValueLabel')
-        self.rxTemperatureValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxTemperatureValueLabel')
-        self.rxFrameStatusValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxFrameStatusValueLabel')
-        self.rxFrameSeqValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxFrameSeqValueLabel')
-        self.rxFrameCmdValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxFrameCmdValueLabel')
-        self.rxFrameLenValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxFrameLenValueLabel')
-        self.rxFrameTotalValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxFrameTotalValueLabel')
-        self.rxStatusLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxStatusLabel')
+        # Debug widgets live inside the QTabWidget
+        for name, child_type in RX_DEBUG_OBJECTS.items():
+            setattr(self, name, require_child(debug_root, child_type, name))
+
         self.rxControlModeLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxControlModeLabel')
-        self.rxFrameMetaLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxFrameMetaLabel')
+        self.rxFrameMetaLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'rxFrameMetaLabel')
         self.valveNoCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'valveNoCheckBox')
         self.adCommandCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'adCommandCheckBox')
 
-        for attr in (
-            'rxStatusValueLabel', 'rxModeValueLabel', 'rxChannelsValueLabel',
-            'rxPressureValueLabel', 'rxTemperatureValueLabel',
-            'rxFrameStatusValueLabel', 'rxFrameSeqValueLabel',
-            'rxFrameCmdValueLabel', 'rxFrameLenValueLabel', 'rxFrameTotalValueLabel',
-        ):
-            label = getattr(self, attr)
-            if label is not None:
-                configure_value_label(label, font)
+        if self.rxControlModeLabel is not None:
+            self.rxControlModeLabel.setFont(font)
 
-        for attr in ('rxStatusLabel', 'rxControlModeLabel', 'rxFrameMetaLabel'):
-            label = getattr(self, attr)
-            if label is not None:
-                label.setFont(font)
+        if self.rxFrameMetaLabel is not None:
+            self.rxFrameMetaLabel.setFont(font)
 
         if self.valveNoCheckBox is not None:
             self.valveNoCheckBox.toggled.connect(self._on_valve_display_toggled)
@@ -112,21 +100,22 @@ class RxPanelView:
 
     def _configure_frame_table(self):
         table = self.rxFrameTable
-        ensure_table_shape(table, len(FRAME_FIXED_FIELDS), 1, 'rxFrameTable')
+        # Now 1 row x 6 columns (horizontal)
+        ensure_table_shape(table, 1, len(FRAME_FIXED_FIELDS), 'rxFrameTable')
         table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         table.setFocusPolicy(QtCore.Qt.NoFocus)
         table.setWordWrap(False)
         table.setFont(self._font)
-        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
-        for row, field in enumerate(FRAME_FIXED_FIELDS):
-            item = table.item(row, 0)
+        for col, field in enumerate(FRAME_FIXED_FIELDS):
+            item = table.item(0, col)
             if item is None:
                 item = QtWidgets.QTableWidgetItem(PLACEHOLDER)
-                table.setItem(row, 0, item)
-            item.setTextAlignment(int(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter))
+                table.setItem(0, col, item)
+            item.setTextAlignment(int(QtCore.Qt.AlignCenter))
             self._frame_items[field] = item
 
     def _on_valve_display_toggled(self, _checked: bool):
@@ -142,46 +131,15 @@ class RxPanelView:
 
     def _render_monitor(self, snet_monitor: Optional[SnetMonitorSnapshot], status: str):
         if snet_monitor is None:
-            if self.rxFrameStatusValueLabel is not None:
-                set_badge(self.rxFrameStatusValueLabel, (status or 'WAIT').upper(), 'neutral')
-            if self.rxStatusValueLabel is not None:
-                self.rxStatusValueLabel.setText(PLACEHOLDER)
-            if self.rxModeValueLabel is not None:
-                self.rxModeValueLabel.setText(PLACEHOLDER)
-            if self.rxChannelsValueLabel is not None:
-                self.rxChannelsValueLabel.setText(PLACEHOLDER)
-            if self.rxPressureValueLabel is not None:
-                self.rxPressureValueLabel.setText(PLACEHOLDER)
-            if self.rxTemperatureValueLabel is not None:
-                self.rxTemperatureValueLabel.setText(PLACEHOLDER)
-            if self.rxStatusLabel is not None:
-                self.rxStatusLabel.setText(f'Status: {status} | Ch.: --')
             if self.rxControlModeLabel is not None:
                 self.rxControlModeLabel.setText('PRESS: -- | TEMP: --')
             for col in range(MAX_CHANNELS):
                 self._set_monitor_column(col, None, invert_no=self._valve_display_inverted())
             return
 
-        tone = 'ok' if status == 'OK' else 'warn' if status == 'TIMEOUT' else 'neutral'
         pressure_text = f'{pressure_raw_to_psi(snet_monitor.pressure_raw):.2f} psi'
         temperature_text = f'{temperature_raw_to_celsius(snet_monitor.temperature_raw):.2f}\u00b0C'
 
-        if self.rxFrameStatusValueLabel is not None:
-            set_badge(self.rxFrameStatusValueLabel, (status or 'OK').upper(), tone)
-        if self.rxStatusValueLabel is not None:
-            self.rxStatusValueLabel.setText(f'0x{snet_monitor.status:02X}')
-        if self.rxModeValueLabel is not None:
-            self.rxModeValueLabel.setText(f'0x{snet_monitor.mode:02X}')
-        if self.rxChannelsValueLabel is not None:
-            self.rxChannelsValueLabel.setText(str(snet_monitor.channel_count))
-        if self.rxPressureValueLabel is not None:
-            self.rxPressureValueLabel.setText(pressure_text)
-        if self.rxTemperatureValueLabel is not None:
-            self.rxTemperatureValueLabel.setText(temperature_text)
-        if self.rxStatusLabel is not None:
-            self.rxStatusLabel.setText(
-                f'Status: 0x{snet_monitor.status:02X} ({status}) | Ch.: {snet_monitor.channel_count}'
-            )
         if self.rxControlModeLabel is not None:
             self.rxControlModeLabel.setText(f'PRESS: {pressure_text} | TEMP: {temperature_text}')
 
@@ -221,37 +179,16 @@ class RxPanelView:
             for item in self._frame_items.values():
                 item.setText(PLACEHOLDER)
             self.rxDataDump.setPlainText(PLACEHOLDER)
-            if self.rxFrameSeqValueLabel is not None:
-                self.rxFrameSeqValueLabel.setText(PLACEHOLDER)
-            if self.rxFrameCmdValueLabel is not None:
-                self.rxFrameCmdValueLabel.setText(PLACEHOLDER)
-            if self.rxFrameLenValueLabel is not None:
-                self.rxFrameLenValueLabel.setText(PLACEHOLDER)
-            if self.rxFrameTotalValueLabel is not None:
-                self.rxFrameTotalValueLabel.setText(PLACEHOLDER)
             if self.rxFrameMetaLabel is not None:
                 self.rxFrameMetaLabel.setText(f'Frame: {status or PLACEHOLDER} | LEN: -- | Total: --')
-            if self.rxFrameStatusValueLabel is not None:
-                set_badge(self.rxFrameStatusValueLabel, (status or 'WAIT').upper(), 'neutral')
             return
 
         for field, hex_text in frame_view_fixed_rows(frame_view).items():
             self._frame_items[field].setText(hex_text)
         self.rxDataDump.setPlainText(format_data_hexdump(frame_view.data, HEX_DUMP_BYTES_PER_LINE))
-        if self.rxFrameSeqValueLabel is not None:
-            self.rxFrameSeqValueLabel.setText(f'0x{frame_view.seq:02X}')
-        if self.rxFrameCmdValueLabel is not None:
-            self.rxFrameCmdValueLabel.setText(f'0x{frame_view.cmd:04X}')
-        if self.rxFrameLenValueLabel is not None:
-            self.rxFrameLenValueLabel.setText(f'0x{frame_view.length:02X}')
-        if self.rxFrameTotalValueLabel is not None:
-            self.rxFrameTotalValueLabel.setText(str(len(frame_view.raw)))
         if self.rxFrameMetaLabel is not None:
             length_text = f'0x{frame_view.length:02X} ({frame_view.length} bytes)'
             total_text = f'{len(frame_view.raw)} bytes'
             self.rxFrameMetaLabel.setText(
                 f'Frame: {status or PLACEHOLDER} | LEN: {length_text} | Total: {total_text}'
             )
-        tone = 'ok' if status == 'OK' else 'warn' if status == 'TIMEOUT' else 'neutral'
-        if self.rxFrameStatusValueLabel is not None:
-            set_badge(self.rxFrameStatusValueLabel, (status or 'RX').upper(), tone)
