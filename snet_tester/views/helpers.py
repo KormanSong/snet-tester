@@ -104,12 +104,3 @@ def ensure_table_shape(table: QtWidgets.QTableWidget, rows: int, cols: int, tabl
         )
 
 
-def build_line_edit_style(background: str, border: str = '#B0B0B0') -> str:
-    return (
-        'QLineEdit {'
-        f' background-color: {background};'
-        f' border: 1px solid {border};'
-        ' border-radius: 4px;'
-        ' padding: 2px 6px;'
-        '}'
-    )

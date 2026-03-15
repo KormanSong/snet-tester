@@ -255,7 +255,7 @@ class TxPanelView:
         btn.setMaximumWidth(28)
         btn.setMaximumHeight(18)
         btn.setStyleSheet('QPushButton { padding: 0px 2px; margin: 0px; }')
-        btn.clicked.connect(lambda _checked, r=row: self._on_preset_apply_by_button(btn))
+        btn.clicked.connect(lambda _checked: self._on_preset_apply_by_button(btn))
         table.setCellWidget(row, APPLY_COL, btn)
 
     def _on_preset_apply_by_button(self, btn: QtWidgets.QPushButton):

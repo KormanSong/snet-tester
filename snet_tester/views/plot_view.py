@@ -241,8 +241,8 @@ class PlotView:
             rx_btn = self._toggle_buttons[(i - 1, 'rx')]
             self._configure_toggle_button(tx_btn, color, btn_font)
             self._configure_toggle_button(rx_btn, color, btn_font)
-            tx_btn.toggled.connect(lambda _c, ch=i - 1: self._apply_curve_visibility())
-            rx_btn.toggled.connect(lambda _c, ch=i - 1: self._apply_curve_visibility())
+            tx_btn.toggled.connect(lambda _c: self._apply_curve_visibility())
+            rx_btn.toggled.connect(lambda _c: self._apply_curve_visibility())
 
     def _configure_toggle_button(self, button: QtWidgets.QPushButton, color, font: QtGui.QFont):
         dim = self._theme.blend(color, (120, 128, 136), 0.72)
