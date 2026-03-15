@@ -6,6 +6,7 @@ import time
 from typing import Optional
 
 import numpy as np
+import serial.tools.list_ports
 from PyQt5 import QtCore, QtWidgets
 
 from ..config import SerialConfig
@@ -35,6 +36,7 @@ from .helpers import build_fixed_font, load_ui, require_child, find_optional_chi
 from .tx_panel import TxPanelView
 from .rx_panel import RxPanelView
 from .plot_view import PlotView
+from .response_tracker import ResponseTimeTracker
 
 UI_TIMER_MS = 20
 MOCK_LATENCY_MS = 5.0
@@ -98,6 +100,12 @@ class MainWindow(QtWidgets.QMainWindow):
         for name, child_type in MAIN_WINDOW_OBJECTS.items():
             setattr(self, name, require_child(self, child_type, name))
 
+        # Fix right panel width
+        RIGHT_PANEL_WIDTH = 459
+        for panel in (self.txPanel, self.rxPanel, self.debugTabWidget):
+            panel.setMinimumWidth(RIGHT_PANEL_WIDTH)
+            panel.setMaximumWidth(RIGHT_PANEL_WIDTH)
+
         self._mock_mode = mock_mode
         self._shutdown_done = False
         self._summary_printed = False
@@ -121,8 +129,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self._total = 0
         self._success_count = 0
         self._fail_count = 0
+        self._last_rx_monitor: Optional[SnetMonitorSnapshot] = None
+        self._response_tracker = ResponseTimeTracker()
 
         fixed_font = build_fixed_font()
+        # Port combo — starts empty, connect on selection
+        self._port_combo = find_optional_child(self.txPanel, QtWidgets.QComboBox, 'portCombo')
+        if self._port_combo is not None:
+            self._populate_ports()
+            self._port_combo.currentTextChanged.connect(self._on_port_selected)
+
         self.tx_panel = TxPanelView(root=self.txPanel, debug_root=self.debugTabWidget, font=fixed_font)
         self.rx_panel = RxPanelView(root=self.rxPanel, debug_root=self.debugTabWidget, font=fixed_font)
 
@@ -159,13 +175,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self._mock_timer.timeout.connect(self._emit_mock_sample)
             self.statusBar().showMessage('Mock mode enabled')
         else:
-            self._worker = SerialWorker(
-                event_queue=self._event_queue,
-                command_queue=self._command_queue,
-                stop_event=self._stop_event,
-                config=self._config,
-            )
-            self._worker.start()
+            # Don't start worker yet — wait for port selection
+            self.statusBar().showMessage('Select COM port to connect')
 
     # --- UI timer ---
 
@@ -191,6 +202,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tx_panel.set_applied_payload(payload, highlight_inputs=self._awaiting_apply_feedback)
             self._awaiting_apply_feedback = False
             self.plot_view.set_series_counts(tx_count=payload.channel_count)
+            # Response time: start measurement
+            self._response_tracker.start(payload, self._last_rx_monitor)
+            if self._response_tracker.is_active and self.plot_view.plotLastUpdateValueLabel is not None:
+                self.plot_view.plotLastUpdateValueLabel.setText('--')
             return
 
         if kind == 'tx_frame':
@@ -202,6 +217,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         if kind == 'rx_monitor':
+            self._last_rx_monitor = payload
             self.rx_panel.update_monitor(payload, status='OK' if payload is not None else 'TIMEOUT')
             self.plot_view.note_rx_monitor(payload)
             return
@@ -211,6 +227,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self._total += 1
             self.plot_view.add_point(event.tx_payload, event.rx_monitor)
             print(format_sample_log(event, self._config.run_forever, self._config.test_count))
+
+            # Response time check
+            elapsed = self._response_tracker.check(event)
+            if elapsed is not None and self.plot_view.plotLastUpdateValueLabel is not None:
+                self.plot_view.plotLastUpdateValueLabel.setText(f'{elapsed:.2f}')
 
             if event.success:
                 self._success_count += 1
@@ -329,6 +350,45 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         self._mock_seq = (self._mock_seq + 1) & 0xFF
+
+    # --- Port combo ---
+
+    def _populate_ports(self):
+        if self._port_combo is None:
+            return
+        self._port_combo.blockSignals(True)
+        self._port_combo.clear()
+        self._port_combo.addItem('')  # empty first item
+        ports = serial.tools.list_ports.comports()
+        for port in sorted(ports, key=lambda p: p.device):
+            self._port_combo.addItem(port.device)
+        self._port_combo.setCurrentIndex(0)  # start with empty
+        self._port_combo.blockSignals(False)
+
+    def _on_port_selected(self, port_name: str):
+        if not port_name or self._mock_mode:
+            return
+        # Stop existing worker if any
+        if self._worker is not None:
+            self._command_queue.put(('set_running', False))
+            self._stop_event.set()
+            self._worker.join(timeout=2.0)
+            self._on_ui_timer()  # drain remaining events
+            self._worker = None
+
+        # Start new worker with selected port
+        self._stop_event = threading.Event()
+        self._event_queue = queue.SimpleQueue()
+        self._command_queue = queue.SimpleQueue()
+        self._config.port = port_name
+        self._worker = SerialWorker(
+            event_queue=self._event_queue,
+            command_queue=self._command_queue,
+            stop_event=self._stop_event,
+            config=self._config,
+        )
+        self._worker.start()
+        self.statusBar().showMessage(f'Connected: {port_name}')
 
     # --- Lifecycle ---
 

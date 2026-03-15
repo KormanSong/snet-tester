@@ -55,13 +55,11 @@ class RxPanelView:
         for name, child_type in RX_DEBUG_OBJECTS.items():
             setattr(self, name, require_child(debug_root, child_type, name))
 
-        self.rxControlModeLabel = find_optional_child(self._root, QtWidgets.QLabel, 'rxControlModeLabel')
+        self.pressValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'pressValueLabel')
+        self.tempValueLabel = find_optional_child(self._root, QtWidgets.QLabel, 'tempValueLabel')
         self.rxFrameMetaLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'rxFrameMetaLabel')
         self.valveNoCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'valveNoCheckBox')
         self.adCommandCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'adCommandCheckBox')
-
-        if self.rxControlModeLabel is not None:
-            self.rxControlModeLabel.setFont(font)
 
         if self.rxFrameMetaLabel is not None:
             self.rxFrameMetaLabel.setFont(font)
@@ -82,9 +80,15 @@ class RxPanelView:
         table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         table.setFocusPolicy(QtCore.Qt.NoFocus)
         table.setWordWrap(False)
-        table.setFont(self._font)
+
+        compact_font = QtGui.QFont(self._font)
+        compact_font.setPointSize(9)
+        table.setFont(compact_font)
+
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-        table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        table.verticalHeader().setDefaultSectionSize(20)
+        table.verticalHeader().setMinimumSectionSize(20)
+        table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Fixed)
         palette = table.palette()
         self._table_enabled_brush = QtGui.QBrush(palette.color(QtGui.QPalette.Text))
         self._table_disabled_brush = QtGui.QBrush(palette.color(QtGui.QPalette.Disabled, QtGui.QPalette.Text))
@@ -129,19 +133,23 @@ class RxPanelView:
         self._last_monitor_status = status
         self._render_monitor(snet_monitor, status)
 
+    def _update_info_display(self, pressure: str, temperature: str):
+        if self.pressValueLabel is not None:
+            self.pressValueLabel.setText(pressure)
+        if self.tempValueLabel is not None:
+            self.tempValueLabel.setText(temperature)
+
     def _render_monitor(self, snet_monitor: Optional[SnetMonitorSnapshot], status: str):
         if snet_monitor is None:
-            if self.rxControlModeLabel is not None:
-                self.rxControlModeLabel.setText('PRESS: -- | TEMP: --')
+            self._update_info_display(PLACEHOLDER, PLACEHOLDER)
             for col in range(MAX_CHANNELS):
                 self._set_monitor_column(col, None, invert_no=self._valve_display_inverted())
             return
 
-        pressure_text = f'{pressure_raw_to_psi(snet_monitor.pressure_raw):.2f} psi'
-        temperature_text = f'{temperature_raw_to_celsius(snet_monitor.temperature_raw):.2f}\u00b0C'
+        pressure_text = f'{pressure_raw_to_psi(snet_monitor.pressure_raw):.2f}'
+        temperature_text = f'{temperature_raw_to_celsius(snet_monitor.temperature_raw):.2f}'
 
-        if self.rxControlModeLabel is not None:
-            self.rxControlModeLabel.setText(f'PRESS: {pressure_text} | TEMP: {temperature_text}')
+        self._update_info_display(pressure_text, temperature_text)
 
         invert_no = self._valve_display_inverted()
         for col in range(MAX_CHANNELS):
@@ -160,10 +168,12 @@ class RxPanelView:
             valve_display = valve_raw_to_display(channel.valve_raw)
             if invert_no:
                 valve_display = 5.0 - valve_display
+            ratio_val = ratio_raw_to_percent(channel.ratio_raw)
+            ratio_text = str(int(ratio_val)) if ratio_val == int(ratio_val) else f'{ratio_val:.2f}'
             values = [
                 (f'{flow_display:.2f}', f'0x{channel.flow_raw:04X}'),
                 (str(channel.ad_raw), f'0x{channel.ad_raw:04X}'),
-                (f'{ratio_raw_to_percent(channel.ratio_raw):.2f}', f'0x{channel.ratio_raw:04X}'),
+                (ratio_text, f'0x{channel.ratio_raw:04X}'),
                 (f'{valve_display:.2f}', f'0x{channel.valve_raw:04X}'),
             ]
             brush = self._table_enabled_brush

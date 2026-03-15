@@ -1,5 +1,7 @@
-"""TX panel view — channel settings, run/stop/set, frame display, quick set."""
+"""TX panel view — channel settings, run/stop/set, frame display, preset table."""
 
+import json
+import pathlib
 from typing import Optional
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -13,6 +15,30 @@ from ..protocol.codec import (
 )
 from ..protocol.constants import FRAME_FIXED_FIELDS, HEX_DUMP_BYTES_PER_LINE, MAX_CHANNELS, PLACEHOLDER
 from ..protocol.types import FrameView, IoPayload
+class _InstantTooltipFilter(QtCore.QObject):
+    """Show tooltip instantly on mouse enter, no delay."""
+    def eventFilter(self, obj, event):
+        if event.type() == QtCore.QEvent.Enter:
+            tip = obj.toolTip()
+            if tip:
+                pos = obj.mapToGlobal(QtCore.QPoint(obj.width() // 2, -20))
+                QtWidgets.QToolTip.showText(pos, tip, obj)
+        elif event.type() == QtCore.QEvent.Leave:
+            QtWidgets.QToolTip.hideText()
+        return False
+
+
+class _SingleRowScrollTable(QtWidgets.QTableWidget):
+    """QTableWidget that scrolls exactly 1 row per wheel tick."""
+    def wheelEvent(self, event):
+        delta = event.angleDelta().y()
+        if delta > 0:
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - 1)
+        elif delta < 0:
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() + 1)
+        event.accept()
+
+
 from .helpers import (
     configure_plain_text_edit,
     ensure_table_shape,
@@ -31,12 +57,6 @@ TX_PANEL_OBJECTS = {
     'ratioInput4': QtWidgets.QLineEdit,
     'ratioInput5': QtWidgets.QLineEdit,
     'ratioInput6': QtWidgets.QLineEdit,
-    'ratioRaw1': QtWidgets.QLabel,
-    'ratioRaw2': QtWidgets.QLabel,
-    'ratioRaw3': QtWidgets.QLabel,
-    'ratioRaw4': QtWidgets.QLabel,
-    'ratioRaw5': QtWidgets.QLabel,
-    'ratioRaw6': QtWidgets.QLabel,
 }
 
 TX_DEBUG_OBJECTS = {
@@ -44,16 +64,37 @@ TX_DEBUG_OBJECTS = {
     'txDataDump': QtWidgets.QPlainTextEdit,
 }
 
+PRESETS_FILE = pathlib.Path(__file__).resolve().parent.parent / 'presets.json'
+
+DEFAULT_PRESETS = [
+    [100, 0, 0, 0, 0, 0],
+    [0, 100, 0, 0, 0, 0],
+    [0, 0, 100, 0, 0, 0],
+    [0, 0, 0, 100, 0, 0],
+    [20, 20, 20, 20, 20, 0],
+]
+
+APPLY_COL = 6  # 7th column for APPLY button
+
+_RATIO_BASE_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }'
+    'QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }'
+    'QLineEdit::placeholder { color: #888; font-weight: bold; }'
+)
+_RATIO_APPLIED_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa; border-bottom: 3px solid #4CAF50; padding: 1px 2px; }'
+    'QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }'
+    'QLineEdit::placeholder { color: #888; font-weight: bold; }'
+)
+
 
 def _format_ratio(value: float) -> str:
-    """Format ratio: 30 -> '30', 33.3 -> '33.3', 0 -> '0'."""
     if value == int(value):
         return str(int(value))
     return f'{value:g}'
 
 
 def _parse_ratio(text: str) -> Optional[float]:
-    """Parse ratio text, return None if invalid."""
     text = text.strip()
     if not text:
         return None
@@ -71,6 +112,7 @@ class TxPanelView:
         self._running = False
         self._applied_payload: Optional[IoPayload] = None
         self._frame_items: dict[str, QtWidgets.QTableWidgetItem] = {}
+        self._set_callback = None
 
         for name, child_type in TX_PANEL_OBJECTS.items():
             setattr(self, name, require_child(self._root, child_type, name))
@@ -78,20 +120,20 @@ class TxPanelView:
         for name, child_type in TX_DEBUG_OBJECTS.items():
             setattr(self, name, require_child(debug_root, child_type, name))
 
-        self.txStatusLabel = find_optional_child(self._root, QtWidgets.QLabel, 'txStatusLabel')
         self.appliedLabel = find_optional_child(self._root, QtWidgets.QLabel, 'appliedLabel')
         self.txFrameMetaLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'txFrameMetaLabel')
 
         self._ratio_inputs: list[QtWidgets.QLineEdit] = [
             getattr(self, f'ratioInput{i}') for i in range(1, MAX_CHANNELS + 1)
         ]
-        self._ratio_raw_labels: list[QtWidgets.QLabel] = [
-            getattr(self, f'ratioRaw{i}') for i in range(1, MAX_CHANNELS + 1)
-        ]
 
         self.channelCountCombo.clear()
         self.channelCountCombo.addItems([str(i) for i in range(1, MAX_CHANNELS + 1)])
         self.channelCountCombo.currentIndexChanged.connect(self._on_channel_count_changed)
+
+        # Fix tab order: CH1 → CH2 → CH3 → CH4 → CH5 → CH6
+        for i in range(len(self._ratio_inputs) - 1):
+            QtWidgets.QWidget.setTabOrder(self._ratio_inputs[i], self._ratio_inputs[i + 1])
 
         validator = QtGui.QDoubleValidator(0.0, 100.0, 2)
         validator.setNotation(QtGui.QDoubleValidator.StandardNotation)
@@ -99,43 +141,35 @@ class TxPanelView:
             inp.setValidator(validator)
             inp.setFont(font)
             inp.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-            inp.textChanged.connect(self.refresh_pending_previews)
+            inp.setStyleSheet(_RATIO_BASE_STYLE)
+            inp.textChanged.connect(self._on_ratio_text_changed)
+            inp.installEventFilter(self._root)
 
-        for lbl in self._ratio_raw_labels:
-            lbl.setFont(font)
-            lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        # Instant tooltip on hover
+        self._tooltip_filter = _InstantTooltipFilter()
+        for inp in self._ratio_inputs:
+            inp.installEventFilter(self._tooltip_filter)
 
-        if self.txStatusLabel is not None:
-            self.txStatusLabel.setFont(font)
         if self.appliedLabel is not None:
             self.appliedLabel.setFont(font)
         if self.txFrameMetaLabel is not None:
             self.txFrameMetaLabel.setFont(font)
 
-        # Quick Set widgets (optional — searched from txPanel root)
-        self.allRatioInput = find_optional_child(self._root, QtWidgets.QLineEdit, 'allRatioInput')
-        self.applyAllButton = find_optional_child(self._root, QtWidgets.QPushButton, 'applyAllButton')
-        self.preset0Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset0Button')
-        self.preset25Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset25Button')
-        self.preset50Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset50Button')
-        self.preset75Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset75Button')
-        self.preset100Button = find_optional_child(self._root, QtWidgets.QPushButton, 'preset100Button')
+        # Preset table
+        self.presetTable = find_optional_child(self._root, QtWidgets.QTableWidget, 'presetTable')
+        self.addPresetButton = find_optional_child(self._root, QtWidgets.QPushButton, 'addPresetButton')
+        self.delPresetButton = find_optional_child(self._root, QtWidgets.QPushButton, 'delPresetButton')
 
-        if self.allRatioInput is not None:
-            self.allRatioInput.setValidator(validator)
-            self.allRatioInput.setFont(font)
-        if self.applyAllButton is not None:
-            self.applyAllButton.clicked.connect(self._on_apply_all_clicked)
-        for value, btn_name in [(0, 'preset0Button'), (25, 'preset25Button'), (50, 'preset50Button'),
-                                 (75, 'preset75Button'), (100, 'preset100Button')]:
-            btn = getattr(self, btn_name)
-            if btn is not None:
-                btn.clicked.connect(lambda _checked, v=value: self._on_preset_clicked(v))
+        if self.addPresetButton is not None:
+            self.addPresetButton.clicked.connect(self._on_add_preset)
+        if self.delPresetButton is not None:
+            self.delPresetButton.clicked.connect(self._on_del_preset)
 
         configure_plain_text_edit(self.txDataDump, font)
         self._configure_frame_table()
         self._update_channel_input_state()
         self.refresh_pending_previews()
+        self._init_preset_table()
 
     def _configure_frame_table(self):
         table = self.txFrameTable
@@ -160,6 +194,161 @@ class TxPanelView:
         self.runButton.clicked.connect(run_cb)
         self.stopButton.clicked.connect(stop_cb)
         self.setButton.clicked.connect(set_cb)
+        self._set_callback = set_cb
+
+    # --- Preset table ---
+
+    def _init_preset_table(self):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        self._last_applied_row = -1
+
+        # Compact font
+        preset_font = QtGui.QFont(self._font)
+        preset_font.setPointSize(8)
+        table.setFont(preset_font)
+
+        # Hide headers, tight row height
+        table.horizontalHeader().hide()
+        table.verticalHeader().setVisible(False)
+        table.verticalHeader().setDefaultSectionSize(18)
+        table.verticalHeader().setMinimumSectionSize(18)
+
+        # Minimal cell padding via stylesheet
+        table.setStyleSheet('QTableWidget::item { padding: 0px 2px; }')
+
+        # Stretch CH columns, fix APPLY column width
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(APPLY_COL, QtWidgets.QHeaderView.Fixed)
+        table.setColumnWidth(APPLY_COL, 30)
+
+        # Scroll: 1 row per wheel tick
+        table.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerItem)
+        table.wheelEvent = lambda event: _SingleRowScrollTable.wheelEvent(table, event)
+
+        presets = self._load_presets()
+        for values in presets:
+            self._add_preset_row(values)
+
+        table.itemChanged.connect(self._on_preset_cell_changed)
+
+    def _add_preset_row(self, values: list[float]):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        table.blockSignals(True)
+        row = table.rowCount()
+        table.insertRow(row)
+
+        preset_font = table.font()
+        for col in range(MAX_CHANNELS):
+            v = values[col] if col < len(values) else 0.0
+            item = QtWidgets.QTableWidgetItem(_format_ratio(v))
+            item.setTextAlignment(int(QtCore.Qt.AlignCenter))
+            item.setFont(preset_font)
+            table.setItem(row, col, item)
+        table.blockSignals(False)
+
+        btn = QtWidgets.QPushButton('>')
+        btn.setFont(preset_font)
+        btn.setMaximumWidth(28)
+        btn.setMaximumHeight(18)
+        btn.setStyleSheet('QPushButton { padding: 0px 2px; margin: 0px; }')
+        btn.clicked.connect(lambda _checked, r=row: self._on_preset_apply_by_button(btn))
+        table.setCellWidget(row, APPLY_COL, btn)
+
+    def _on_preset_apply_by_button(self, btn: QtWidgets.QPushButton):
+        """Find the row of the button and apply that preset."""
+        if self.presetTable is None:
+            return
+        for row in range(self.presetTable.rowCount()):
+            if self.presetTable.cellWidget(row, APPLY_COL) is btn:
+                self._on_preset_apply(row)
+                return
+
+    def _on_preset_apply(self, row: int):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        if row < 0 or row >= table.rowCount():
+            return
+        active = self._selected_channel_count()
+
+        for col in range(active):
+            item = table.item(row, col)
+            if item is not None:
+                parsed = _parse_ratio(item.text())
+                if parsed is not None:
+                    self._ratio_inputs[col].setText(_format_ratio(parsed))
+
+        # Highlight applied row
+        self._highlight_preset_row(row)
+
+        # Auto SET
+        if self._set_callback is not None:
+            self._set_callback()
+
+    def _highlight_preset_row(self, active_row: int):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        table.blockSignals(True)
+        applied_bg = QtGui.QBrush(QtGui.QColor(200, 230, 200))  # light green
+        default_bg = QtGui.QBrush(QtGui.QColor(255, 255, 255))
+        for row in range(table.rowCount()):
+            bg = applied_bg if row == active_row else default_bg
+            for col in range(MAX_CHANNELS):
+                item = table.item(row, col)
+                if item is not None:
+                    item.setBackground(bg)
+        table.clearSelection()
+        table.blockSignals(False)
+        self._last_applied_row = active_row
+
+    def _on_preset_cell_changed(self, item: QtWidgets.QTableWidgetItem):
+        if item.column() < MAX_CHANNELS:
+            self._save_presets()
+
+    def _on_add_preset(self):
+        self._add_preset_row([0.0] * MAX_CHANNELS)
+        self._save_presets()
+
+    def _on_del_preset(self):
+        if self.presetTable is None:
+            return
+        rows = set(idx.row() for idx in self.presetTable.selectedIndexes())
+        for row in sorted(rows, reverse=True):
+            self.presetTable.removeRow(row)
+        self._save_presets()
+
+    def _save_presets(self):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        presets = []
+        for row in range(table.rowCount()):
+            values = []
+            for col in range(MAX_CHANNELS):
+                item = table.item(row, col)
+                parsed = _parse_ratio(item.text()) if item is not None else 0.0
+                values.append(parsed if parsed is not None else 0.0)
+            presets.append(values)
+        try:
+            PRESETS_FILE.write_text(json.dumps(presets, indent=2), encoding='utf-8')
+        except OSError:
+            pass
+
+    def _load_presets(self) -> list[list[float]]:
+        try:
+            data = json.loads(PRESETS_FILE.read_text(encoding='utf-8'))
+            if isinstance(data, list):
+                return data
+        except (OSError, json.JSONDecodeError):
+            pass
+        return [row[:] for row in DEFAULT_PRESETS]
+
+    # --- Channel count ---
 
     def _selected_channel_count(self) -> int:
         return clamp_channel_count(int(self.channelCountCombo.currentText()))
@@ -167,34 +356,22 @@ class TxPanelView:
     def _on_channel_count_changed(self, *_args):
         self._update_channel_input_state()
         self.refresh_pending_previews()
+        # Reset highlight — not applied yet until SET is clicked
+        self.channelCountCombo.setStyleSheet('')
+        self._clear_ratio_highlights()
 
     def _update_channel_input_state(self):
         active = self._selected_channel_count()
         for i, inp in enumerate(self._ratio_inputs):
             enabled = i < active
             inp.setEnabled(enabled)
-            self._ratio_raw_labels[i].setEnabled(enabled)
             if not enabled:
-                self._ratio_raw_labels[i].setText(PLACEHOLDER)
+                inp.setToolTip('')
+                inp.setStyleSheet(_RATIO_BASE_STYLE)
 
-    # --- Quick Set ---
-
-    def _on_preset_clicked(self, value: float):
-        text = _format_ratio(value)
-        active = self._selected_channel_count()
-        for i in range(active):
-            self._ratio_inputs[i].setText(text)
-
-    def _on_apply_all_clicked(self):
-        if self.allRatioInput is None:
-            return
-        parsed = _parse_ratio(self.allRatioInput.text())
-        if parsed is None:
-            return
-        text = _format_ratio(parsed)
-        active = self._selected_channel_count()
-        for i in range(active):
-            self._ratio_inputs[i].setText(text)
+    def _on_ratio_text_changed(self, *_args):
+        self._clear_ratio_highlights()
+        self.refresh_pending_previews()
 
     # --- Ratio preview ---
 
@@ -202,14 +379,14 @@ class TxPanelView:
         active = self._selected_channel_count()
         for i, inp in enumerate(self._ratio_inputs):
             if i >= active:
-                self._ratio_raw_labels[i].setText(PLACEHOLDER)
+                inp.setToolTip('')
                 continue
             parsed = _parse_ratio(inp.text())
             if parsed is None:
-                self._ratio_raw_labels[i].setText(PLACEHOLDER)
+                inp.setToolTip('')
                 continue
             payload = build_io_payload_model(channel_count=1, ratio_percents=[parsed])
-            self._ratio_raw_labels[i].setText(f'0x{payload.channels[0].ratio_raw:04X}')
+            inp.setToolTip(f'0x{payload.channels[0].ratio_raw:04X}')
 
     def build_pending_payload(self) -> IoPayload:
         active = self._selected_channel_count()
@@ -221,16 +398,13 @@ class TxPanelView:
             ratios.append(parsed)
         return build_io_payload_model(channel_count=active, ratio_percents=ratios)
 
+    # --- State display ---
+
     def show_validation_error(self, message: str):
-        if self.txStatusLabel is not None:
-            self.txStatusLabel.setText(f"State: {'RUN' if self._running else 'STOP'} | {message}")
+        pass
 
     def update_run_state(self, running: bool):
         self._running = running
-        if self.txStatusLabel is not None and self._applied_payload is not None:
-            self.txStatusLabel.setText(
-                f"State: {'RUN' if running else 'STOP'} | Applied Ch.: {self._applied_payload.channel_count}"
-            )
         self.runButton.setEnabled(not running)
         self.stopButton.setEnabled(running)
 
@@ -238,7 +412,22 @@ class TxPanelView:
         self._applied_payload = io_payload
         if self.appliedLabel is not None:
             self.appliedLabel.setText(f'Applied: {format_channel_summary(io_payload)}')
+        if highlight_inputs:
+            self._highlight_ratio_inputs(io_payload.channel_count)
+            self.channelCountCombo.setStyleSheet(
+                'QComboBox { border: 1px solid #aaa; border-bottom: 3px solid #4CAF50; padding: 1px 2px; }'
+            )
         self.update_run_state(self._running)
+
+    def _highlight_ratio_inputs(self, active_count: int):
+        for i, inp in enumerate(self._ratio_inputs):
+            inp.setStyleSheet(_RATIO_APPLIED_STYLE if i < active_count else _RATIO_BASE_STYLE)
+
+    def _clear_ratio_highlights(self):
+        for inp in self._ratio_inputs:
+            inp.setStyleSheet(_RATIO_BASE_STYLE)
+
+    # --- Frame display ---
 
     def update_frame(self, frame_view: Optional[FrameView], status: Optional[str] = None):
         if frame_view is None:

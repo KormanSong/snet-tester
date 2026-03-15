@@ -23,12 +23,12 @@ GRAPH_X_WINDOW_S = 10.0
 PLOT_STALE_THRESHOLD_S = max(0.25, SAMPLE_PERIOD_S * 5.0)
 
 CHANNEL_COLORS = (
-    (33, 150, 243),
-    (231, 76, 60),
-    (46, 204, 113),
-    (243, 156, 18),
-    (26, 188, 156),
-    (155, 89, 182),
+    (0, 229, 255),      # CH1 Cyan    #00E5FF
+    (255, 234, 0),      # CH2 Yellow  #FFEA00
+    (57, 255, 20),      # CH3 Lime    #39FF14
+    (255, 140, 0),      # CH4 Orange  #FF8C00
+    (255, 51, 204),     # CH5 Magenta #FF33CC
+    (255, 255, 255),    # CH6 White   #FFFFFF
 )
 
 
@@ -43,10 +43,10 @@ def _payload_channel_ratios(io_payload: Optional[IoPayload]) -> list[Optional[fl
 
 @dataclass(frozen=True)
 class PlotTheme:
-    background: tuple[int, int, int] = (5, 8, 10)
-    axis: tuple[int, int, int] = (107, 122, 140)
-    axis_text: tuple[int, int, int] = (148, 158, 170)
-    grid: tuple[int, int, int] = (26, 36, 45)
+    background: tuple[int, int, int] = (30, 30, 30)       # #1E1E1E
+    axis: tuple[int, int, int] = (100, 100, 100)           # #646464
+    axis_text: tuple[int, int, int] = (136, 136, 136)      # #888888
+    grid: tuple[int, int, int] = (68, 68, 68)              # #444444
     panel_border: tuple[int, int, int] = (62, 77, 94)
     panel_fill: tuple[int, int, int] = (23, 31, 40)
     stale_badge: tuple[int, int, int] = (176, 120, 28)
@@ -60,14 +60,14 @@ class PlotTheme:
         return tuple(int((s * (1.0 - ratio)) + (d * ratio)) for s, d in zip(rgb, target))
 
     def tx_pen(self, ch: int):
-        return pg.mkPen(color=self.qcolor(CHANNEL_COLORS[ch], 235), width=1.4, style=QtCore.Qt.SolidLine)
+        return pg.mkPen(color=self.qcolor(CHANNEL_COLORS[ch], 120), width=1.0, style=QtCore.Qt.SolidLine)
 
     def rx_live_pen(self, ch: int):
-        return pg.mkPen(color=self.qcolor(CHANNEL_COLORS[ch], 255), width=1.3, style=QtCore.Qt.DashLine)
+        return pg.mkPen(color=self.qcolor(CHANNEL_COLORS[ch], 255), width=2.0, style=QtCore.Qt.SolidLine)
 
     def rx_stale_pen(self, ch: int):
         rgb = self.blend(CHANNEL_COLORS[ch], self.stale_badge, 0.55)
-        return pg.mkPen(color=self.qcolor(rgb, 130), width=1.2, style=QtCore.Qt.DashLine)
+        return pg.mkPen(color=self.qcolor(rgb, 80), width=1.5, style=QtCore.Qt.DashLine)
 
 
 class PlotView:
@@ -213,9 +213,9 @@ class PlotView:
         self._plot.setClipToView(True)
         self._plot.setDownsampling(auto=True, mode='subsample')
         self._plot.layout.setContentsMargins(0, 0, 0, 0)
-        self._plot.setLabel('bottom', 'TIME (S)', color='#9AA7B3', size='9pt')
-        self._plot.setLabel('left', 'RATIO (%)', color='#9AA7B3', size='9pt')
-        self._plot.showGrid(x=True, y=True, alpha=0.11)
+        self._plot.setLabel('bottom', 'TIME (S)', color='#888888', size='9pt')
+        self._plot.setLabel('left', 'RATIO (%)', color='#888888', size='9pt')
+        self._plot.showGrid(x=True, y=True, alpha=0.3)
         self._plot.setXRange(0.0, GRAPH_X_WINDOW_S, padding=0.0)
         self._plot.setYRange(0.0, 100.0, padding=0.0)
         self._plot.disableAutoRange()
@@ -347,13 +347,9 @@ class PlotView:
         self._has_started = True
 
     def _update_status_age(self, now: float):
-        if self.plotLastUpdateValueLabel is None:
-            return
         if self._last_rx_monotonic is None:
-            self.plotLastUpdateValueLabel.setText('--')
             return
         age_s = max(0.0, now - self._last_rx_monotonic)
-        self.plotLastUpdateValueLabel.setText(f'{age_s:0.2f} s')
         if self._running and age_s >= PLOT_STALE_THRESHOLD_S and self._rx_state == 'LIVE':
             self._rx_stale = True
             self._apply_rx_curve_style()

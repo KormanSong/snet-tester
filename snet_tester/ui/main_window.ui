@@ -24,7 +24,7 @@
        </size>
       </property>
       <property name="title">
-       <string>Graph</string>
+       <string/>
       </property>
       <layout class="QVBoxLayout" name="plotPanelLayout">
        <item>
@@ -53,7 +53,7 @@
           <item row="0" column="1">
            <widget class="QLabel" name="plotRxStateCaptionLabel">
             <property name="text">
-             <string>I/O</string>
+             <string>I/O통신</string>
             </property>
            </widget>
           </item>
@@ -95,7 +95,7 @@
           <item row="0" column="4">
            <widget class="QLabel" name="plotLastUpdateCaptionLabel">
             <property name="text">
-             <string>LAST RX</string>
+             <string>응답시간</string>
             </property>
            </widget>
           </item>
@@ -109,7 +109,7 @@
           <item row="0" column="5">
            <widget class="QLabel" name="plotTimeoutCaptionLabel">
             <property name="text">
-             <string>TIMEOUTS</string>
+             <string>타임아웃</string>
             </property>
            </widget>
           </item>
@@ -162,6 +162,19 @@
            </widget>
           </item>
           <item>
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
            <spacer name="plotVerticalSpacer">
             <property name="orientation">
              <enum>Qt::Vertical</enum>
@@ -180,7 +193,7 @@
        <item>
         <widget class="QGroupBox" name="graphSettingsGroup">
          <property name="title">
-          <string>Graph Settings</string>
+          <string>그래프 세팅</string>
          </property>
          <layout class="QVBoxLayout" name="graphSettingsLayout">
           <item>
@@ -301,6 +314,9 @@
          <item>
           <layout class="QHBoxLayout" name="controlLayout">
            <item>
+            <widget class="QComboBox" name="portCombo"/>
+           </item>
+           <item>
             <widget class="QLabel" name="channelsLabel">
              <property name="text">
               <string>Ch.</string>
@@ -356,13 +372,6 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="setButton">
-             <property name="text">
-              <string>SET</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <spacer name="txControlSpacer">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -378,181 +387,173 @@
           </layout>
          </item>
          <item>
-          <widget class="QLabel" name="txStatusLabel">
-           <property name="text">
-            <string>State: STOP | Applied Ch.: 1</string>
+          <widget class="QGroupBox" name="presetGroup">
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>170</height>
+            </size>
            </property>
-          </widget>
-         </item>
-         <item>
-          <layout class="QGridLayout" name="txGridLayout">
-           <item row="0" column="0">
-            <widget class="QLabel" name="channelHeaderLabel">
-             <property name="text">
-              <string>Channel</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLabel" name="channel1Label">
-             <property name="text">
-              <string>CH1</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QLabel" name="channel2Label">
-             <property name="text">
-              <string>CH2</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="3">
-            <widget class="QLabel" name="channel3Label">
-             <property name="text">
-              <string>CH3</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="4">
-            <widget class="QLabel" name="channel4Label">
-             <property name="text">
-              <string>CH4</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="5">
-            <widget class="QLabel" name="channel5Label">
-             <property name="text">
-              <string>CH5</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="6">
-            <widget class="QLabel" name="channel6Label">
-             <property name="text">
-              <string>CH6</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="ratioHeaderLabel">
-             <property name="text">
-              <string>Ratio (%)</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QLineEdit" name="ratioInput1"><property name="text"><string>0</string></property></widget>
-           </item>
-           <item row="1" column="2">
-            <widget class="QLineEdit" name="ratioInput2"><property name="text"><string>0</string></property></widget>
-           </item>
-           <item row="1" column="3">
-            <widget class="QLineEdit" name="ratioInput3"><property name="text"><string>0</string></property></widget>
-           </item>
-           <item row="1" column="4">
-            <widget class="QLineEdit" name="ratioInput4"><property name="text"><string>0</string></property></widget>
-           </item>
-           <item row="1" column="5">
-            <widget class="QLineEdit" name="ratioInput5"><property name="text"><string>0</string></property></widget>
-           </item>
-           <item row="1" column="6">
-            <widget class="QLineEdit" name="ratioInput6"><property name="text"><string>0</string></property></widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="rawHeaderLabel">
-             <property name="text">
-              <string>Raw</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QLabel" name="ratioRaw1">
-             <property name="text">
-              <string>0x0000</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="2">
-            <widget class="QLabel" name="ratioRaw2">
-             <property name="text">
-              <string>0x0000</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="3">
-            <widget class="QLabel" name="ratioRaw3">
-             <property name="text">
-              <string>0x0000</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="4">
-            <widget class="QLabel" name="ratioRaw4">
-             <property name="text">
-              <string>0x0000</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="5">
-            <widget class="QLabel" name="ratioRaw5">
-             <property name="text">
-              <string>0x0000</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="6">
-            <widget class="QLabel" name="ratioRaw6">
-             <property name="text">
-              <string>0x0000</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <widget class="QGroupBox" name="quickSetGroup">
-           <property name="title"><string>Quick Set</string></property>
-           <layout class="QVBoxLayout" name="quickSetLayout">
+           <property name="title">
+            <string>Ratio</string>
+           </property>
+           <layout class="QVBoxLayout" name="presetGroupLayout">
             <item>
-             <layout class="QHBoxLayout" name="allRatioLayout">
+             <layout class="QHBoxLayout" name="txRatioLayout">
               <item>
-               <widget class="QLabel" name="allRatioLabel"><property name="text"><string>ALL</string></property></widget>
+               <widget class="QLineEdit" name="ratioInput1">
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="placeholderText">
+                 <string>CH1</string>
+                </property>
+               </widget>
               </item>
               <item>
-               <widget class="QLineEdit" name="allRatioInput"><property name="text"><string>0</string></property></widget>
+               <widget class="QLineEdit" name="ratioInput2">
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="placeholderText">
+                 <string>CH2</string>
+                </property>
+               </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="applyAllButton"><property name="text"><string>APPLY</string></property></widget>
+               <widget class="QLineEdit" name="ratioInput3">
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="placeholderText">
+                 <string>CH3</string>
+                </property>
+               </widget>
               </item>
               <item>
-               <spacer name="allRatioSpacer">
-                <property name="orientation"><enum>Qt::Horizontal</enum></property>
-                <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
-               </spacer>
+               <widget class="QLineEdit" name="ratioInput4">
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="placeholderText">
+                 <string>CH4</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="ratioInput5">
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="placeholderText">
+                 <string>CH5</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="ratioInput6">
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="placeholderText">
+                 <string>CH6</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="setButton">
+                <property name="text">
+                 <string>SET</string>
+                </property>
+               </widget>
               </item>
              </layout>
             </item>
             <item>
-             <layout class="QHBoxLayout" name="presetLayout">
+             <widget class="QTableWidget" name="presetTable">
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="horizontalScrollBarPolicy">
+               <enum>Qt::ScrollBarAlwaysOff</enum>
+              </property>
+              <property name="selectionMode">
+               <enum>QAbstractItemView::SingleSelection</enum>
+              </property>
+              <property name="selectionBehavior">
+               <enum>QAbstractItemView::SelectRows</enum>
+              </property>
+              <property name="columnCount">
+               <number>7</number>
+              </property>
+              <column>
+               <property name="text">
+                <string>CH1</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>CH2</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>CH3</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>CH4</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>CH5</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>CH6</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string/>
+               </property>
+              </column>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="presetButtonLayout">
               <item>
-               <widget class="QLabel" name="presetLabel"><property name="text"><string>Preset</string></property></widget>
+               <widget class="QPushButton" name="addPresetButton">
+                <property name="text">
+                 <string>+ Add</string>
+                </property>
+               </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="preset0Button"><property name="text"><string>0%</string></property></widget>
+               <widget class="QPushButton" name="delPresetButton">
+                <property name="text">
+                 <string>- Del</string>
+                </property>
+               </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="preset25Button"><property name="text"><string>25%</string></property></widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="preset50Button"><property name="text"><string>50%</string></property></widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="preset75Button"><property name="text"><string>75%</string></property></widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="preset100Button"><property name="text"><string>100%</string></property></widget>
+               <spacer name="presetButtonSpacer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
               </item>
              </layout>
             </item>
@@ -575,14 +576,14 @@
         </property>
         <layout class="QVBoxLayout" name="rxVerticalLayout">
          <item>
-          <widget class="QLabel" name="rxControlModeLabel">
-           <property name="text">
-            <string>PRESS: -- | TEMP: --</string>
-           </property>
-          </widget>
-         </item>
-         <item>
           <layout class="QHBoxLayout" name="rxOptionLayout">
+           <item>
+            <widget class="QCheckBox" name="adCommandCheckBox">
+             <property name="text">
+              <string>AD</string>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QCheckBox" name="valveNoCheckBox">
              <property name="text">
@@ -594,14 +595,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="adCommandCheckBox">
-             <property name="text">
-              <string>AD</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="rxOptionSpacer">
+            <spacer name="horizontalSpacer_2">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -613,6 +607,40 @@
              </property>
             </spacer>
            </item>
+           <item>
+            <widget class="QLabel" name="pressLabel">
+             <property name="text">
+              <string>PRESS</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="pressValueLabel">
+             <property name="styleSheet">
+              <string notr="true">QLabel { background-color: #ffffff; border: 1px solid #8a939b; padding: 1px 4px; }</string>
+             </property>
+             <property name="text">
+              <string>--</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="tempLabel">
+             <property name="text">
+              <string>TEMP</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="tempValueLabel">
+             <property name="styleSheet">
+              <string notr="true">QLabel { background-color: #ffffff; border: 1px solid #8a939b; padding: 1px 4px; }</string>
+             </property>
+             <property name="text">
+              <string>--</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </item>
          <item>
@@ -620,7 +648,7 @@
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>135</height>
+             <height>120</height>
             </size>
            </property>
            <property name="styleSheet">
@@ -642,7 +670,7 @@ QTableWidget::item {
 QHeaderView::section {
     background-color: #212529;
     color: #ffffff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 900;
     padding: 1px;
     border: 1px solid #495057;

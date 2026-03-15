@@ -235,7 +235,7 @@ def hex_bytes(data: bytes) -> str:
 
 def frame_view_fixed_rows(frame_view: FrameView) -> dict[str, str]:
     return {
-        'STX': hex_bytes(frame_view.stx),
+        'STX': '0x' + frame_view.stx.hex().upper(),
         'SEQ': f'0x{frame_view.seq:02X}',
         'ID': f'0x{frame_view.frame_id:02X}',
         'CH': f'0x{frame_view.ch:02X}',
