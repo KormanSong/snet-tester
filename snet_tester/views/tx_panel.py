@@ -28,14 +28,19 @@ class _InstantTooltipFilter(QtCore.QObject):
         return False
 
 
-class _SingleRowScrollTable(QtWidgets.QTableWidget):
-    """QTableWidget that scrolls exactly 1 row per wheel tick."""
+class _FractionalRowScrollTable(QtWidgets.QTableWidget):
+    """QTableWidget that scrolls 0.75 rows per wheel tick (pixel-based)."""
+    SCROLL_FRACTION = 0.75
+
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
+        row_height = self.verticalHeader().defaultSectionSize()
+        pixel_step = int(row_height * _FractionalRowScrollTable.SCROLL_FRACTION)
+        sb = self.verticalScrollBar()
         if delta > 0:
-            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - 1)
+            sb.setValue(sb.value() - pixel_step)
         elif delta < 0:
-            self.verticalScrollBar().setValue(self.verticalScrollBar().value() + 1)
+            sb.setValue(sb.value() + pixel_step)
         event.accept()
 
 
@@ -223,9 +228,9 @@ class TxPanelView:
         table.horizontalHeader().setSectionResizeMode(APPLY_COL, QtWidgets.QHeaderView.Fixed)
         table.setColumnWidth(APPLY_COL, 30)
 
-        # Scroll: 1 row per wheel tick
-        table.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerItem)
-        table.wheelEvent = lambda event: _SingleRowScrollTable.wheelEvent(table, event)
+        # Scroll: 0.75 row per wheel tick (pixel-based)
+        table.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
+        table.wheelEvent = lambda event: _FractionalRowScrollTable.wheelEvent(table, event)
 
         presets = self._load_presets()
         for values in presets:

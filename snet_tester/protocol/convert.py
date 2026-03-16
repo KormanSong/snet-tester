@@ -1,6 +1,8 @@
 """Raw value to physical unit conversion functions."""
 
 from .constants import (
+    FLOW_FULL_SCALE_PERCENT,
+    FLOW_FULL_SCALE_RAW,
     PRESSURE_FULL_SCALE_PSI,
     PRESSURE_FULL_SCALE_RAW,
     RATIO_FULL_SCALE_RAW,
@@ -30,8 +32,8 @@ def pressure_raw_to_psi(pressure_raw: int) -> float:
 
 
 def flow_raw_to_display(flow_raw: int) -> float:
-    raw = max(0, min(RATIO_FULL_SCALE_RAW, int(flow_raw)))
-    return (raw / RATIO_FULL_SCALE_RAW) * 100.0
+    raw = max(0, min(FLOW_FULL_SCALE_RAW, int(flow_raw)))
+    return (raw / FLOW_FULL_SCALE_RAW) * FLOW_FULL_SCALE_PERCENT
 
 
 def valve_raw_to_display(valve_raw: int) -> float:

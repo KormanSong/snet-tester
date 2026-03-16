@@ -13,6 +13,9 @@ dependencies = [
     "matplotlib",
 ]
 
+[tool.setuptools]
+packages = ["snet_tester", "snet_tester.comm", "snet_tester.protocol", "snet_tester.views", "snet_tester.tests"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",

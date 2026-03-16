@@ -138,6 +138,11 @@ class RxPanelView:
             self.pressValueLabel.setText(pressure)
         if self.tempValueLabel is not None:
             self.tempValueLabel.setText(temperature)
+            try:
+                kelvin = float(temperature) + 273.15
+                self.tempValueLabel.setToolTip(f'{kelvin:.2f} K')
+            except ValueError:
+                self.tempValueLabel.setToolTip('')
 
     def _render_monitor(self, snet_monitor: Optional[SnetMonitorSnapshot], status: str):
         if snet_monitor is None:
