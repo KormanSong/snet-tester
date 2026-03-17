@@ -39,7 +39,7 @@
           <item row="0" column="0">
            <widget class="QLabel" name="plotRunCaptionLabel">
             <property name="text">
-             <string>RUN</string>
+             <string>GO</string>
             </property>
            </widget>
           </item>
@@ -373,7 +373,7 @@
            <item>
             <widget class="QPushButton" name="runButton">
              <property name="text">
-              <string>RUN</string>
+              <string>GO</string>
              </property>
             </widget>
            </item>
@@ -382,6 +382,19 @@
              <property name="text">
               <string>STOP</string>
              </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="modeToggle">
+            <property name="text">
+             <string>RUN</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+            <property name="toolTip">
+             <string>RUN / CAL mode switch</string>
+            </property>
             </widget>
            </item>
            <item>
@@ -598,20 +611,27 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="valveNoCheckBox">
-             <property name="text">
-              <string>N.O.</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_2">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
+           <widget class="QCheckBox" name="valveNoCheckBox">
+            <property name="text">
+             <string>N.O.</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="fullOpenControlCheckBox">
+            <property name="text">
+             <string>풀오픈제어</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
              <property name="sizeHint" stdset="0">
               <size>
                <width>40</width>

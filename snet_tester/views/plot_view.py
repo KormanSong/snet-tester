@@ -298,7 +298,7 @@ class PlotView:
     def set_run_state(self, running: bool):
         self._running = running
         if self.plotRunValueLabel is not None:
-            set_badge(self.plotRunValueLabel, 'RUN' if running else 'STOP', 'run' if running else 'stop')
+            set_badge(self.plotRunValueLabel, 'GO' if running else 'STOP', 'run' if running else 'stop')
         if not running and self._rx_state not in ('STALE', 'TIMEOUT'):
             self._set_rx_state('WAIT', 'neutral')
 

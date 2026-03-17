@@ -2,6 +2,7 @@
 
 import json
 import pathlib
+import sys
 from typing import Optional
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -15,6 +16,8 @@ from ..protocol.codec import (
 )
 from ..protocol.constants import FRAME_FIXED_FIELDS, HEX_DUMP_BYTES_PER_LINE, MAX_CHANNELS, PLACEHOLDER
 from ..protocol.types import FrameView, IoPayload
+
+
 class _InstantTooltipFilter(QtCore.QObject):
     """Show tooltip instantly on mouse enter, no delay."""
     def eventFilter(self, obj, event):
@@ -44,6 +47,107 @@ class _FractionalRowScrollTable(QtWidgets.QTableWidget):
         event.accept()
 
 
+class _ModeToggleSwitch(QtWidgets.QCheckBox):
+    """A left/right switch that clearly shows RUN vs CAL mode."""
+
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
+        super().__init__(parent)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+        self.setText('')
+        self._thumb_position = 0.0 if self.isChecked() else 1.0
+        self._animation = QtCore.QPropertyAnimation(self, b'thumbPosition', self)
+        self._animation.setDuration(160)
+        self._animation.setEasingCurve(QtCore.QEasingCurve.OutCubic)
+        self.stateChanged.connect(self._animate_thumb)
+
+    def sizeHint(self) -> QtCore.QSize:
+        return QtCore.QSize(128, 34)
+
+    def minimumSizeHint(self) -> QtCore.QSize:
+        return self.sizeHint()
+
+    def hitButton(self, pos: QtCore.QPoint) -> bool:
+        return self.rect().contains(pos)
+
+    @QtCore.pyqtProperty(float)
+    def thumbPosition(self) -> float:
+        return self._thumb_position
+
+    @thumbPosition.setter
+    def thumbPosition(self, value: float):
+        self._thumb_position = max(0.0, min(1.0, float(value)))
+        self.update()
+
+    def _animate_thumb(self, _state: int):
+        end_value = 0.0 if self.isChecked() else 1.0
+        self._animation.stop()
+        self._animation.setStartValue(self._thumb_position)
+        self._animation.setEndValue(end_value)
+        self._animation.start()
+
+    def paintEvent(self, _event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+
+        rect = QtCore.QRectF(self.rect()).adjusted(1.5, 1.5, -1.5, -1.5)
+        radius = rect.height() / 2.0
+        track_path = QtGui.QPainterPath()
+        track_path.addRoundedRect(rect, radius, radius)
+
+        track_color = QtGui.QColor(34, 41, 50)
+        border_color = QtGui.QColor(82, 92, 104)
+        active_color = QtGui.QColor(37, 166, 106) if self.isChecked() else QtGui.QColor(233, 145, 46)
+
+        painter.setPen(QtGui.QPen(border_color, 1.2))
+        painter.setBrush(track_color)
+        painter.drawPath(track_path)
+
+        active_rect = QtCore.QRectF(
+            rect.left() if self.isChecked() else rect.center().x(),
+            rect.top(),
+            rect.width() / 2.0,
+            rect.height(),
+        )
+        painter.save()
+        painter.setClipPath(track_path)
+        painter.fillRect(active_rect, active_color)
+        painter.restore()
+
+        knob_diameter = rect.height() - 8.0
+        knob_x = rect.left() + 4.0 + (self._thumb_position * (rect.width() - knob_diameter - 8.0))
+        knob_rect = QtCore.QRectF(knob_x, rect.top() + 4.0, knob_diameter, knob_diameter)
+
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.setBrush(QtGui.QColor(0, 0, 0, 50))
+        painter.drawEllipse(knob_rect.translated(0.0, 1.5))
+        painter.setBrush(QtGui.QColor(248, 250, 252))
+        painter.drawEllipse(knob_rect)
+
+        label_font = QtGui.QFont(self.font())
+        label_font.setBold(True)
+        label_font.setPointSize(max(8, label_font.pointSize()))
+        painter.setFont(label_font)
+
+        left_rect = QtCore.QRectF(rect.left() + 34.0, rect.top(), (rect.width() / 2.0) - 36.0, rect.height())
+        right_rect = QtCore.QRectF(rect.center().x() + 4.0, rect.top(), (rect.width() / 2.0) - 36.0, rect.height())
+
+        left_color = QtGui.QColor(250, 252, 255) if self.isChecked() else QtGui.QColor(156, 167, 179)
+        right_color = QtGui.QColor(250, 252, 255) if not self.isChecked() else QtGui.QColor(156, 167, 179)
+
+        painter.setPen(left_color)
+        painter.drawText(left_rect, int(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft), 'RUN')
+        painter.setPen(right_color)
+        painter.drawText(right_rect, int(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight), 'CAL')
+
+        if self.hasFocus():
+            focus_pen = QtGui.QPen(QtGui.QColor(160, 197, 255), 1.2)
+            focus_pen.setStyle(QtCore.Qt.DashLine)
+            painter.setPen(focus_pen)
+            painter.setBrush(QtCore.Qt.NoBrush)
+            painter.drawRoundedRect(rect.adjusted(2.0, 2.0, -2.0, -2.0), radius - 2.0, radius - 2.0)
+
+
 from .helpers import (
     configure_plain_text_edit,
     ensure_table_shape,
@@ -69,7 +173,21 @@ TX_DEBUG_OBJECTS = {
     'txDataDump': QtWidgets.QPlainTextEdit,
 }
 
-PRESETS_FILE = pathlib.Path(__file__).resolve().parent.parent / 'presets.json'
+def _presets_path() -> pathlib.Path:
+    """Return writable presets.json path; falls back to bundled default."""
+    if getattr(sys, 'frozen', False):
+        return pathlib.Path(sys.executable).parent / 'presets.json'
+    return pathlib.Path(__file__).resolve().parent.parent / 'presets.json'
+
+
+def _bundled_presets_path() -> pathlib.Path:
+    """Return the bundled (read-only) presets.json inside PyInstaller bundle."""
+    if getattr(sys, 'frozen', False):
+        return pathlib.Path(sys._MEIPASS) / 'snet_tester' / 'presets.json'
+    return pathlib.Path(__file__).resolve().parent.parent / 'presets.json'
+
+
+PRESETS_FILE = _presets_path()
 
 DEFAULT_PRESETS = [
     [100, 0, 0, 0, 0, 0],
@@ -127,6 +245,9 @@ class TxPanelView:
 
         self.appliedLabel = find_optional_child(self._root, QtWidgets.QLabel, 'appliedLabel')
         self.txFrameMetaLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'txFrameMetaLabel')
+        self.modeToggle = find_optional_child(self._root, QtWidgets.QCheckBox, 'modeToggle')
+        if self.modeToggle is not None:
+            self.modeToggle = self._upgrade_mode_toggle(self.modeToggle)
 
         self._ratio_inputs: list[QtWidgets.QLineEdit] = [
             getattr(self, f'ratioInput{i}') for i in range(1, MAX_CHANNELS + 1)
@@ -175,6 +296,43 @@ class TxPanelView:
         self._update_channel_input_state()
         self.refresh_pending_previews()
         self._init_preset_table()
+
+    def _upgrade_mode_toggle(self, checkbox: QtWidgets.QCheckBox) -> _ModeToggleSwitch:
+        toggle = _ModeToggleSwitch(checkbox.parentWidget())
+        toggle.setObjectName(checkbox.objectName())
+        toggle.setToolTip(checkbox.toolTip())
+        toggle.setStatusTip(checkbox.statusTip())
+        toggle.setWhatsThis(checkbox.whatsThis())
+        toggle.setEnabled(checkbox.isEnabled())
+        toggle.setFont(self._font)
+        toggle.setChecked(checkbox.isChecked())
+        toggle.thumbPosition = 0.0 if toggle.isChecked() else 1.0
+
+        if not self._replace_widget(self._root.layout(), checkbox, toggle):
+            toggle.setParent(checkbox.parentWidget())
+            toggle.show()
+
+        checkbox.deleteLater()
+        return toggle
+
+    def _replace_widget(self, layout: Optional[QtWidgets.QLayout], source: QtWidgets.QWidget, target: QtWidgets.QWidget) -> bool:
+        if layout is None:
+            return False
+
+        for index in range(layout.count()):
+            item = layout.itemAt(index)
+            child_widget = item.widget()
+            if child_widget is source:
+                layout.insertWidget(index, target)
+                layout.removeWidget(source)
+                source.hide()
+                return True
+
+            child_layout = item.layout()
+            if child_layout is not None and self._replace_widget(child_layout, source, target):
+                return True
+
+        return False
 
     def _configure_frame_table(self):
         table = self.txFrameTable
@@ -345,12 +503,13 @@ class TxPanelView:
             pass
 
     def _load_presets(self) -> list[list[float]]:
-        try:
-            data = json.loads(PRESETS_FILE.read_text(encoding='utf-8'))
-            if isinstance(data, list):
-                return data
-        except (OSError, json.JSONDecodeError):
-            pass
+        for path in (PRESETS_FILE, _bundled_presets_path()):
+            try:
+                data = json.loads(path.read_text(encoding='utf-8'))
+                if isinstance(data, list):
+                    return data
+            except (OSError, json.JSONDecodeError):
+                continue
         return [row[:] for row in DEFAULT_PRESETS]
 
     # --- Channel count ---

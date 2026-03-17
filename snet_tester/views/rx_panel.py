@@ -60,6 +60,7 @@ class RxPanelView:
         self.rxFrameMetaLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'rxFrameMetaLabel')
         self.valveNoCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'valveNoCheckBox')
         self.adCommandCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'adCommandCheckBox')
+        self.fullOpenControlCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'fullOpenControlCheckBox')
 
         if self.rxFrameMetaLabel is not None:
             self.rxFrameMetaLabel.setFont(font)

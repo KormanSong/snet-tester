@@ -28,6 +28,8 @@ from ..protocol.constants import (
     RESPONSE_CMD,
     SAMPLE_PERIOD_S,
     SEQ_START,
+    WRITE_VAR_FULL_OPEN_CONTROL_FLAG_INDEX,
+    WRITE_VAR_MODE_FLAG_INDEX,
     WRITE_VAR_READ_AD_FLAG_INDEX,
 )
 from ..protocol.types import IoPayload, SampleEvent, SnetMonitorSnapshot
@@ -158,6 +160,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tx_panel.connect_actions(self._on_run_clicked, self._on_stop_clicked, self._on_set_clicked)
         if self.rx_panel.adCommandCheckBox is not None:
             self.rx_panel.adCommandCheckBox.toggled.connect(self._on_ad_command_toggled)
+        if self.rx_panel.fullOpenControlCheckBox is not None:
+            self.rx_panel.fullOpenControlCheckBox.toggled.connect(self._on_full_open_control_toggled)
+        if self.tx_panel.modeToggle is not None:
+            self.tx_panel.modeToggle.toggled.connect(self._on_mode_toggled)
 
         self.tx_panel.set_applied_payload(self._applied_payload)
         self.tx_panel.update_run_state(False)
@@ -298,16 +304,31 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_ad_command_toggled(self, checked: bool):
         value = 1 if checked else 0
         if self._mock_mode:
-            self._emit_mock_write_var(value)
+            self._emit_mock_write_var(WRITE_VAR_READ_AD_FLAG_INDEX, value)
             return
-        self._command_queue.put(('write_var', value))
+        self._command_queue.put(('write_var', (WRITE_VAR_READ_AD_FLAG_INDEX, value)))
+
+    def _on_full_open_control_toggled(self, checked: bool):
+        value = 1 if checked else 0
+        if self._mock_mode:
+            self._emit_mock_write_var(WRITE_VAR_FULL_OPEN_CONTROL_FLAG_INDEX, value)
+            return
+        self._command_queue.put(('write_var', (WRITE_VAR_FULL_OPEN_CONTROL_FLAG_INDEX, value)))
+
+    def _on_mode_toggled(self, checked: bool):
+        """checked=True → CAL mode, False → RUN mode."""
+        value = 1 if checked else 0
+        if self._mock_mode:
+            self._emit_mock_write_var(WRITE_VAR_MODE_FLAG_INDEX, value)
+            return
+        self._command_queue.put(('write_var', (WRITE_VAR_MODE_FLAG_INDEX, value)))
 
     # --- Mock ---
 
-    def _emit_mock_write_var(self, value: int):
-        request = build_write_var_frame(self._mock_seq, WRITE_VAR_READ_AD_FLAG_INDEX, value)
+    def _emit_mock_write_var(self, var_index: int, value: int):
+        request = build_write_var_frame(self._mock_seq, var_index, value)
         tx_frame = decode_frame_view(request)
-        response = build_write_var_frame(self._mock_seq, WRITE_VAR_READ_AD_FLAG_INDEX, value)
+        response = build_write_var_frame(self._mock_seq, var_index, value)
         rx_frame = decode_frame_view(response)
         self._handle_event('tx_frame', tx_frame)
         self._handle_event('rx_frame', rx_frame)

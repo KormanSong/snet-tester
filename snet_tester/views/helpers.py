@@ -1,12 +1,21 @@
 """Shared UI helper functions."""
 
 import pathlib
+import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
 from ..protocol.constants import PLACEHOLDER
 
-UI_DIR = pathlib.Path(__file__).resolve().parent.parent / 'ui'
+
+def _package_dir() -> pathlib.Path:
+    """Return the snet_tester package directory, works both normally and in PyInstaller bundles."""
+    if getattr(sys, 'frozen', False):
+        return pathlib.Path(sys._MEIPASS) / 'snet_tester'
+    return pathlib.Path(__file__).resolve().parent.parent
+
+
+UI_DIR = _package_dir() / 'ui'
 
 
 def ui_path(filename: str) -> pathlib.Path:

@@ -22,7 +22,6 @@ from ..protocol.constants import (
     REQUEST_CMD,
     RESPONSE_CMD,
     SEQ_START,
-    WRITE_VAR_READ_AD_FLAG_INDEX,
 )
 from ..protocol.parser import ProtocolParser
 from ..protocol.types import IoPayload, SampleEvent
@@ -80,7 +79,7 @@ class SerialWorker(threading.Thread):
                 applied_payload = payload
                 self._queue.put(('applied_setpoint', applied_payload))
             elif kind == 'write_var':
-                write_var_values.append(int(payload))
+                write_var_values.append(payload)  # (var_index, value) tuple
 
         return running, applied_payload, write_var_values
 
@@ -116,8 +115,8 @@ class SerialWorker(threading.Thread):
 
                     # Handle write_var commands
                     if pending_write_var_values:
-                        value = pending_write_var_values.pop()
-                        request = build_write_var_frame(seq, WRITE_VAR_READ_AD_FLAG_INDEX, value)
+                        var_index, value = pending_write_var_values.pop()
+                        request = build_write_var_frame(seq, var_index, value)
                         tx_frame = decode_frame_view(request)
 
                         ser.reset_input_buffer()
