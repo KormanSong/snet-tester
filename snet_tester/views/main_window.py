@@ -11,10 +11,14 @@ from PyQt5 import QtCore, QtWidgets
 
 from ..config import SerialConfig
 from ..protocol.codec import (
+    build_brooks_get_kp_frame,
+    build_brooks_get_kp_response_frame,
     build_frame,
     build_io_payload_bytes,
     build_mock_snet_monitor_payload,
+    build_read_var_frame,
     build_write_var_frame,
+    decode_brooks_kp_payload,
     decode_frame_view,
     decode_io_payload,
     decode_snet_monitor_payload,
@@ -23,6 +27,7 @@ from ..protocol.codec import (
     format_sample_log,
 )
 from ..protocol.constants import (
+    FULL_OPEN_VALUE_VAR_INDEX,
     MAX_CHANNELS,
     REQUEST_CMD,
     RESPONSE_CMD,
@@ -104,7 +109,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Fix right panel width
         RIGHT_PANEL_WIDTH = 459
-        for panel in (self.txPanel, self.rxPanel, self.debugTabWidget):
+        for panel in (self.txPanel, self.rxPanel):
             panel.setMinimumWidth(RIGHT_PANEL_WIDTH)
             panel.setMaximumWidth(RIGHT_PANEL_WIDTH)
 
@@ -118,6 +123,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._mock_seq = SEQ_START
         self._mock_index = 0
         self._mock_skip_cycles = 0
+        self._mock_var_values = {
+            FULL_OPEN_VALUE_VAR_INDEX: 0,
+        }
+        self._mock_kp_values = (0.25, 0.75, 1.5, 3.0, 4.5, 6.0)
+        self._relay_channel = 0
 
         self._event_queue: queue.SimpleQueue = queue.SimpleQueue()
         self._command_queue: queue.SimpleQueue = queue.SimpleQueue()
@@ -135,6 +145,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self._response_tracker = ResponseTimeTracker()
 
         fixed_font = build_fixed_font()
+        self.relayChannelBar = find_optional_child(self, QtWidgets.QWidget, 'relayChannelBar')
+        self._relay_channel_buttons = {
+            0: find_optional_child(self, QtWidgets.QPushButton, 'relayAllButton'),
+            1: find_optional_child(self, QtWidgets.QPushButton, 'relayCh1Button'),
+            2: find_optional_child(self, QtWidgets.QPushButton, 'relayCh2Button'),
+            3: find_optional_child(self, QtWidgets.QPushButton, 'relayCh3Button'),
+            4: find_optional_child(self, QtWidgets.QPushButton, 'relayCh4Button'),
+            5: find_optional_child(self, QtWidgets.QPushButton, 'relayCh5Button'),
+            6: find_optional_child(self, QtWidgets.QPushButton, 'relayCh6Button'),
+        }
+        self._relay_channel_group: Optional[QtWidgets.QButtonGroup] = None
+        self._init_relay_channel_selector()
+        self.calibrationGroup = self._build_calibration_group()
+        if self.calibrationGroup is not None:
+            self.calibrationGroup.setMinimumWidth(RIGHT_PANEL_WIDTH)
+            self.calibrationGroup.setMaximumWidth(RIGHT_PANEL_WIDTH)
+        self.resize(1220, self.height())
+
         # Port combo — starts empty, connect on selection
         self._port_combo = find_optional_child(self.txPanel, QtWidgets.QComboBox, 'portCombo')
         if self._port_combo is not None:
@@ -143,6 +171,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tx_panel = TxPanelView(root=self.txPanel, debug_root=self.debugTabWidget, font=fixed_font)
         self.rx_panel = RxPanelView(root=self.rxPanel, debug_root=self.debugTabWidget, font=fixed_font)
+        self.rx_panel.set_full_open_value_raw(
+            self._mock_var_values.get(FULL_OPEN_VALUE_VAR_INDEX) if self._mock_mode else None
+        )
 
         for name, child_type in PLOT_PANEL_OBJECTS.items():
             setattr(self, name, require_child(self.plotPanel, child_type, name))
@@ -162,8 +193,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rx_panel.adCommandCheckBox.toggled.connect(self._on_ad_command_toggled)
         if self.rx_panel.fullOpenControlCheckBox is not None:
             self.rx_panel.fullOpenControlCheckBox.toggled.connect(self._on_full_open_control_toggled)
+        if self.rx_panel.fullOpenApplyButton is not None:
+            self.rx_panel.fullOpenApplyButton.clicked.connect(self._on_full_open_apply_clicked)
         if self.tx_panel.modeToggle is not None:
             self.tx_panel.modeToggle.toggled.connect(self._on_mode_toggled)
+        if self.tx_panel.btnLoadKp is not None:
+            self.tx_panel.btnLoadKp.clicked.connect(self._on_load_kp_clicked)
 
         self.tx_panel.set_applied_payload(self._applied_payload)
         self.tx_panel.update_run_state(False)
@@ -183,6 +218,94 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             # Don't start worker yet — wait for port selection
             self.statusBar().showMessage('Select COM port to connect')
+
+    def _init_relay_channel_selector(self):
+        buttons = {channel: button for channel, button in self._relay_channel_buttons.items() if button is not None}
+        if not buttons:
+            return
+
+        self._relay_channel_group = QtWidgets.QButtonGroup(self)
+        self._relay_channel_group.setExclusive(True)
+
+        base_style = (
+            'QPushButton {'
+            ' padding: 0px 4px;'
+            ' border: 1px solid #9AA4AF;'
+            ' border-radius: 3px;'
+            ' background: #F6F8FA;'
+            ' min-height: 20px;'
+            ' font-size: 8pt;'
+            '}'
+            'QPushButton:hover {'
+            ' background: #EEF3F8;'
+            '}'
+            'QPushButton:checked {'
+            ' background: #DDEBFF;'
+            ' border-color: #4B84D9;'
+            ' font-weight: 600;'
+            '}'
+        )
+
+        for channel, button in buttons.items():
+            button.setStyleSheet(base_style)
+            button.setToolTip(f'Relay CH {channel}' if channel else 'Relay CH ALL')
+            self._relay_channel_group.addButton(button, channel)
+
+        checked_button = buttons.get(self._relay_channel, next(iter(buttons.values())))
+        checked_button.setChecked(True)
+        self._relay_channel_group.buttonClicked[int].connect(self._on_relay_channel_changed)
+
+    def _build_calibration_group(self) -> Optional[QtWidgets.QGroupBox]:
+        if self.relayChannelBar is None:
+            return None
+
+        right_layout = self.findChild(QtWidgets.QVBoxLayout, 'rightLayout')
+        if right_layout is None:
+            return None
+
+        calibration_group = self.findChild(QtWidgets.QGroupBox, 'calibrationGroup')
+        if calibration_group is not None:
+            return calibration_group
+
+        relay_index = self._layout_index_of(right_layout, self.relayChannelBar)
+        debug_index = self._layout_index_of(right_layout, self.debugTabWidget)
+        if relay_index < 0 or debug_index < 0:
+            return None
+
+        calibration_group = QtWidgets.QGroupBox('Calibration', self.centralWidget())
+        calibration_group.setObjectName('calibrationGroup')
+        calibration_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+
+        group_layout = QtWidgets.QVBoxLayout(calibration_group)
+        group_layout.setContentsMargins(8, 8, 8, 8)
+        group_layout.setSpacing(4)
+
+        if isinstance(self.relayChannelBar, QtWidgets.QGroupBox):
+            self.relayChannelBar.setTitle('')
+            self.relayChannelBar.setFlat(True)
+            self.relayChannelBar.setStyleSheet('QGroupBox { border: 0; margin-top: 0px; padding-top: 0px; }')
+        self.relayChannelBar.setMinimumHeight(30)
+        self.relayChannelBar.setMaximumHeight(34)
+
+        right_layout.removeWidget(self.relayChannelBar)
+        right_layout.removeWidget(self.debugTabWidget)
+        group_layout.addWidget(self.relayChannelBar)
+        group_layout.addWidget(self.debugTabWidget, 1)
+        right_layout.insertWidget(min(relay_index, debug_index), calibration_group)
+
+        return calibration_group
+
+    def _layout_index_of(self, layout: QtWidgets.QLayout, widget: QtWidgets.QWidget) -> int:
+        for index in range(layout.count()):
+            item = layout.itemAt(index)
+            if item.widget() is widget:
+                return index
+        return -1
+
+    def _on_relay_channel_changed(self, channel: int):
+        self._relay_channel = int(channel)
+        channel_text = 'ALL' if self._relay_channel == 0 else str(self._relay_channel)
+        self.statusBar().showMessage(f'Relay channel selected: {channel_text}')
 
     # --- UI timer ---
 
@@ -226,6 +349,25 @@ class MainWindow(QtWidgets.QMainWindow):
             self._last_rx_monitor = payload
             self.rx_panel.update_monitor(payload, status='OK' if payload is not None else 'TIMEOUT')
             self.plot_view.note_rx_monitor(payload)
+            return
+
+        if kind == 'var_value':
+            var_index, value = payload
+            if var_index == FULL_OPEN_VALUE_VAR_INDEX:
+                self.rx_panel.set_full_open_value_raw(value)
+            return
+
+        if kind == 'brooks_kp_values':
+            relay_channel, values = payload
+            self.tx_panel.set_kp_values(relay_channel, values)
+            visible_count = self.tx_panel.visible_kp_field_count()
+            channel_text = 'ALL' if relay_channel == 0 else str(relay_channel)
+            if len(values) > visible_count:
+                self.statusBar().showMessage(
+                    f'KP loaded from CH {channel_text} (extra value available in tooltip)'
+                )
+            else:
+                self.statusBar().showMessage(f'KP loaded from CH {channel_text}')
             return
 
         if kind == 'sample':
@@ -315,6 +457,23 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._command_queue.put(('write_var', (WRITE_VAR_FULL_OPEN_CONTROL_FLAG_INDEX, value)))
 
+    def _on_full_open_apply_clicked(self):
+        try:
+            raw_value = self.rx_panel.build_full_open_raw_value()
+        except ValueError as exc:
+            self.statusBar().showMessage(str(exc))
+            return
+
+        if self._mock_mode:
+            self._emit_mock_write_var(FULL_OPEN_VALUE_VAR_INDEX, raw_value)
+            return
+
+        if self._worker is None:
+            self.statusBar().showMessage('Select COM port to connect')
+            return
+
+        self._command_queue.put(('write_var', (FULL_OPEN_VALUE_VAR_INDEX, raw_value)))
+
     def _on_mode_toggled(self, checked: bool):
         """checked=True → CAL mode, False → RUN mode."""
         value = 1 if checked else 0
@@ -323,18 +482,63 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._command_queue.put(('write_var', (WRITE_VAR_MODE_FLAG_INDEX, value)))
 
+    def _on_load_kp_clicked(self):
+        if self._mock_mode:
+            self._emit_mock_brooks_get_kp(self._relay_channel)
+            return
+
+        if self._worker is None:
+            self.statusBar().showMessage('Select COM port to connect')
+            return
+
+        channel_text = 'ALL' if self._relay_channel == 0 else str(self._relay_channel)
+        self.statusBar().showMessage(f'Loading KP from CH {channel_text}...')
+        self._command_queue.put(('brooks_get_kp', self._relay_channel))
+
     # --- Mock ---
 
     def _emit_mock_write_var(self, var_index: int, value: int):
+        if var_index == FULL_OPEN_VALUE_VAR_INDEX:
+            self._mock_var_values[var_index] = value
         request = build_write_var_frame(self._mock_seq, var_index, value)
         tx_frame = decode_frame_view(request)
         response = build_write_var_frame(self._mock_seq, var_index, value)
         rx_frame = decode_frame_view(response)
         self._handle_event('tx_frame', tx_frame)
         self._handle_event('rx_frame', rx_frame)
+        if var_index == FULL_OPEN_VALUE_VAR_INDEX:
+            self._handle_event('var_value', (var_index, value))
         self._mock_seq = (self._mock_seq + 1) & 0xFF
         if self._mock_running:
             self._mock_skip_cycles = max(self._mock_skip_cycles, 1)
+
+    def _emit_mock_read_var(self, var_index: int):
+        value = self._mock_var_values.get(var_index, 0)
+        request = build_read_var_frame(self._mock_seq, var_index)
+        tx_frame = decode_frame_view(request)
+        response = build_write_var_frame(self._mock_seq, var_index, value)
+        rx_frame = decode_frame_view(response)
+        self._handle_event('tx_frame', tx_frame)
+        self._handle_event('rx_frame', rx_frame)
+        self._handle_event('var_value', (var_index, value))
+        self._mock_seq = (self._mock_seq + 1) & 0xFF
+
+    def _emit_mock_brooks_get_kp(self, relay_channel: int):
+        request = build_brooks_get_kp_frame(self._mock_seq, ch=relay_channel)
+        tx_frame = decode_frame_view(request)
+        response = build_brooks_get_kp_response_frame(
+            self._mock_seq,
+            self._mock_kp_values,
+            ch=relay_channel,
+        )
+        rx_frame = decode_frame_view(response)
+        decoded = decode_brooks_kp_payload(rx_frame.data)
+
+        self._handle_event('tx_frame', tx_frame)
+        self._handle_event('rx_frame', rx_frame)
+        if decoded is not None:
+            self._handle_event('brooks_kp_values', (relay_channel, decoded))
+        self._mock_seq = (self._mock_seq + 1) & 0xFF
 
     def _emit_mock_sample(self):
         if self._mock_skip_cycles > 0:
@@ -409,6 +613,8 @@ class MainWindow(QtWidgets.QMainWindow):
             config=self._config,
         )
         self._worker.start()
+        self.rx_panel.set_full_open_value_raw(None)
+        self._command_queue.put(('read_var', FULL_OPEN_VALUE_VAR_INDEX))
         self.statusBar().showMessage(f'Connected: {port_name}')
 
     # --- Lifecycle ---

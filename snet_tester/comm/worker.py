@@ -1,5 +1,6 @@
 """Serial communication worker thread."""
 
+from collections import deque
 import queue
 import threading
 import time
@@ -9,14 +10,21 @@ import serial
 
 from ..config import SerialConfig
 from ..protocol.codec import (
+    build_brooks_get_kp_frame,
     build_frame,
     build_io_payload_bytes,
+    build_read_var_frame,
     build_write_var_frame,
+    brooks_response_cmd,
+    decode_brooks_kp_payload,
+    decode_var_value_payload,
     decode_frame_view,
     decode_io_payload,
     default_io_payload,
 )
 from ..protocol.constants import (
+    BROOKS_GET_KP_CMD_L,
+    BROOKS_GET_KP_TIMEOUT_S,
     FRAME_CH_DEFAULT,
     FRAME_ID_DEFAULT,
     REQUEST_CMD,
@@ -27,7 +35,14 @@ from ..protocol.parser import ProtocolParser
 from ..protocol.types import IoPayload, SampleEvent
 
 
-def _wait_for_response(ser, parser: ProtocolParser, expected_seq: int, timeout: float, expected_cmd: Optional[int] = RESPONSE_CMD):
+def _wait_for_response(
+    ser,
+    parser: ProtocolParser,
+    expected_seq: int,
+    timeout: float,
+    expected_cmd: Optional[int] = RESPONSE_CMD,
+    expected_ch: int = FRAME_CH_DEFAULT,
+):
     start = time.perf_counter()
 
     while True:
@@ -43,7 +58,7 @@ def _wait_for_response(ser, parser: ProtocolParser, expected_seq: int, timeout: 
                     frame.seq == expected_seq
                     and (expected_cmd is None or frame.cmd == expected_cmd)
                     and frame.view.frame_id == FRAME_ID_DEFAULT
-                    and frame.view.ch == FRAME_CH_DEFAULT
+                    and frame.view.ch == expected_ch
                 ):
                     return frame
         else:
@@ -65,7 +80,7 @@ class SerialWorker(threading.Thread):
         self._config = config
 
     def _drain_commands(self, running: bool, applied_payload: IoPayload):
-        write_var_values = []
+        aux_commands = []
         while True:
             try:
                 kind, payload = self._command_queue.get_nowait()
@@ -79,9 +94,13 @@ class SerialWorker(threading.Thread):
                 applied_payload = payload
                 self._queue.put(('applied_setpoint', applied_payload))
             elif kind == 'write_var':
-                write_var_values.append(payload)  # (var_index, value) tuple
+                aux_commands.append((kind, payload))
+            elif kind == 'read_var':
+                aux_commands.append((kind, payload))
+            elif kind == 'brooks_get_kp':
+                aux_commands.append((kind, int(payload)))
 
-        return running, applied_payload, write_var_values
+        return running, applied_payload, aux_commands
 
     def run(self):
         cfg = self._config
@@ -90,7 +109,7 @@ class SerialWorker(threading.Thread):
         index = 0
         running = False
         applied_payload = default_io_payload(channel_count=1)
-        pending_write_var_values = []
+        pending_var_commands = deque()
 
         try:
             with serial.Serial(
@@ -108,15 +127,25 @@ class SerialWorker(threading.Thread):
                 self._queue.put(('run_state', running))
 
                 while not self._stop_event.is_set():
-                    running, applied_payload, write_var_values = self._drain_commands(running, applied_payload)
-                    pending_write_var_values.extend(write_var_values)
-                    if pending_write_var_values:
-                        pending_write_var_values = [pending_write_var_values[-1]]
+                    running, applied_payload, aux_commands = self._drain_commands(running, applied_payload)
+                    pending_var_commands.extend(aux_commands)
 
-                    # Handle write_var commands
-                    if pending_write_var_values:
-                        var_index, value = pending_write_var_values.pop()
-                        request = build_write_var_frame(seq, var_index, value)
+                    if pending_var_commands:
+                        command_kind, payload = pending_var_commands.popleft()
+                        expected_cmd = None
+                        var_index = None
+                        response_timeout = cfg.rx_timeout_s
+                        if command_kind == 'write_var':
+                            var_index, value = payload
+                            request = build_write_var_frame(seq, var_index, value)
+                        elif command_kind == 'read_var':
+                            var_index = int(payload)
+                            request = build_read_var_frame(seq, var_index)
+                        else:
+                            relay_channel = int(payload)
+                            request = build_brooks_get_kp_frame(seq, ch=relay_channel)
+                            expected_cmd = brooks_response_cmd(BROOKS_GET_KP_CMD_L)
+                            response_timeout = max(cfg.rx_timeout_s, BROOKS_GET_KP_TIMEOUT_S)
                         tx_frame = decode_frame_view(request)
 
                         ser.reset_input_buffer()
@@ -129,10 +158,24 @@ class SerialWorker(threading.Thread):
                         response = _wait_for_response(
                             ser, parser,
                             expected_seq=seq,
-                            timeout=cfg.rx_timeout_s,
-                            expected_cmd=None,
+                            timeout=response_timeout,
+                            expected_cmd=expected_cmd,
+                            expected_ch=tx_frame.ch,
                         )
                         self._queue.put(('rx_frame', response.view if response is not None else None))
+                        if command_kind in {'write_var', 'read_var'} and response is not None and var_index is not None:
+                            decoded_var_value = decode_var_value_payload(response.view.data)
+                            if decoded_var_value is not None and decoded_var_value[0] == var_index:
+                                self._queue.put(('var_value', decoded_var_value))
+                        elif command_kind == 'brooks_get_kp':
+                            if response is None:
+                                self._queue.put(('error', 'GET_KP response timeout'))
+                            else:
+                                decoded_kp_values = decode_brooks_kp_payload(response.view.data)
+                                if decoded_kp_values is None:
+                                    self._queue.put(('error', 'GET_KP response payload is invalid'))
+                                else:
+                                    self._queue.put(('brooks_kp_values', (response.view.ch, decoded_kp_values)))
 
                         seq = (seq + 1) & 0xFF
                         target_next = time.perf_counter() + cfg.sample_period_s
@@ -142,8 +185,7 @@ class SerialWorker(threading.Thread):
                                 break
                             running, applied_payload, extra = self._drain_commands(running, applied_payload)
                             if extra:
-                                pending_write_var_values.extend(extra)
-                                pending_write_var_values = [pending_write_var_values[-1]]
+                                pending_var_commands.extend(extra)
                                 break
                             time.sleep(min(0.01, remain))
                         continue
@@ -202,8 +244,7 @@ class SerialWorker(threading.Thread):
                             break
                         running, applied_payload, extra = self._drain_commands(running, applied_payload)
                         if extra:
-                            pending_write_var_values.extend(extra)
-                            pending_write_var_values = [pending_write_var_values[-1]]
+                            pending_var_commands.extend(extra)
                             break
                         if not running:
                             break

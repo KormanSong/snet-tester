@@ -1,5 +1,6 @@
 """SNET frame encoding/decoding and payload serialization."""
 
+import struct
 from typing import Optional, Sequence
 
 from .constants import (
@@ -16,14 +17,24 @@ from .constants import (
     FRAME_FIXED_FIELDS,
     HEADER,
     HEX_DUMP_BYTES_PER_LINE,
+    BROOKS_DEFAULT_SLAVE_ID,
+    BROOKS_KP_DOUBLE_LEN,
+    BROOKS_KP_STATUS_LEN,
+    BROOKS_KP_STATUS_OK,
+    BROOKS_GET_KP_DUMMY_LEN,
+    BROOKS_GET_KP_CMD_L,
+    BROOKS_KP_VALUE_COUNT,
+    BROOKS_KP_SCALE,
+    BROOKS_REQUEST_CMD_BASE,
+    BROOKS_RESPONSE_DIR_BIT,
     IO_CONTROL_MODE_DEFAULT,
     IO_OVERRIDE_DEFAULT,
     MAX_CHANNELS,
     PLACEHOLDER,
+    READ_VAR_CMD,
     RATIO_FULL_SCALE_RAW,
     SNET_MONITOR_HEADER_LEN,
     WRITE_VAR_CMD,
-    WRITE_VAR_READ_AD_FLAG_INDEX,
 )
 from .convert import ratio_percent_to_raw, ratio_raw_to_percent
 from .types import (
@@ -177,7 +188,14 @@ def decode_frame_view(frame_bytes: bytes) -> FrameView:
     )
 
 
-def build_frame(seq: int, cmd: int, payload: bytes = b'') -> bytes:
+def build_frame(
+    seq: int,
+    cmd: int,
+    payload: bytes = b'',
+    *,
+    frame_id: int = FRAME_ID_DEFAULT,
+    ch: int = FRAME_CH_DEFAULT,
+) -> bytes:
     if len(payload) > 0xFF:
         raise ValueError('payload length must be <= 255')
 
@@ -185,8 +203,8 @@ def build_frame(seq: int, cmd: int, payload: bytes = b'') -> bytes:
         HEADER
         + bytes((
             seq & 0xFF,
-            FRAME_ID_DEFAULT & 0xFF,
-            FRAME_CH_DEFAULT & 0xFF,
+            frame_id & 0xFF,
+            ch & 0xFF,
             (cmd >> 8) & 0xFF,
             cmd & 0xFF,
             len(payload) & 0xFF,
@@ -202,8 +220,107 @@ def build_write_var_payload(var_index: int, value: int) -> bytes:
     )
 
 
-def build_write_var_frame(seq: int, var_index: int, value: int) -> bytes:
-    return build_frame(seq, WRITE_VAR_CMD, build_write_var_payload(var_index, value))
+def build_read_var_payload(var_index: int) -> bytes:
+    return int(var_index).to_bytes(2, byteorder='big', signed=False)
+
+
+def decode_var_value_payload(payload: bytes) -> Optional[tuple[int, int]]:
+    if len(payload) != 10:
+        return None
+
+    return (
+        int.from_bytes(payload[:2], byteorder='big', signed=False),
+        int.from_bytes(payload[2:], byteorder='big', signed=False),
+    )
+
+
+def build_read_var_frame(seq: int, var_index: int, *, ch: int = FRAME_CH_DEFAULT) -> bytes:
+    return build_frame(seq, READ_VAR_CMD, build_read_var_payload(var_index), ch=ch)
+
+
+def build_write_var_frame(seq: int, var_index: int, value: int, *, ch: int = FRAME_CH_DEFAULT) -> bytes:
+    return build_frame(seq, WRITE_VAR_CMD, build_write_var_payload(var_index, value), ch=ch)
+
+
+def brooks_request_cmd(cmd_l: int) -> int:
+    return BROOKS_REQUEST_CMD_BASE | (cmd_l & 0xFF)
+
+
+def brooks_response_cmd(cmd_l: int) -> int:
+    return (BROOKS_REQUEST_CMD_BASE | BROOKS_RESPONSE_DIR_BIT) | (cmd_l & 0xFF)
+
+
+def build_brooks_relay_payload(slave_id: int = BROOKS_DEFAULT_SLAVE_ID, payload: bytes = b'') -> bytes:
+    return bytes((int(slave_id) & 0xFF,)) + bytes(payload)
+
+
+def build_brooks_request_frame(
+    seq: int,
+    cmd_l: int,
+    slave_id: int = BROOKS_DEFAULT_SLAVE_ID,
+    payload: bytes = b'',
+    *,
+    ch: int = FRAME_CH_DEFAULT,
+) -> bytes:
+    return build_frame(seq, brooks_request_cmd(cmd_l), build_brooks_relay_payload(slave_id, payload), ch=ch)
+
+
+def build_brooks_response_frame(
+    seq: int,
+    cmd_l: int,
+    slave_id: int = BROOKS_DEFAULT_SLAVE_ID,
+    payload: bytes = b'',
+    *,
+    ch: int = FRAME_CH_DEFAULT,
+) -> bytes:
+    return build_frame(seq, brooks_response_cmd(cmd_l), build_brooks_relay_payload(slave_id, payload), ch=ch)
+
+
+def build_brooks_get_kp_frame(
+    seq: int,
+    *,
+    ch: int = FRAME_CH_DEFAULT,
+) -> bytes:
+    payload = bytes((BROOKS_KP_VALUE_COUNT,)) + (b'\x00' * BROOKS_GET_KP_DUMMY_LEN)
+    return build_frame(seq, brooks_request_cmd(BROOKS_GET_KP_CMD_L), payload, ch=ch)
+
+
+def build_brooks_kp_payload(
+    values: Sequence[float],
+) -> bytes:
+    kp_values = tuple(float(value) for value in values)
+    if len(kp_values) != BROOKS_KP_VALUE_COUNT:
+        raise ValueError(f'Brooks KP payload requires {BROOKS_KP_VALUE_COUNT} float values')
+
+    payload = bytearray()
+    for value in kp_values:
+        payload.extend(int(BROOKS_KP_STATUS_OK).to_bytes(BROOKS_KP_STATUS_LEN, byteorder='big', signed=False))
+        payload.extend(struct.pack('>d', value * BROOKS_KP_SCALE))
+    return bytes(payload)
+
+
+def build_brooks_get_kp_response_frame(
+    seq: int,
+    values: Sequence[float],
+    *,
+    ch: int = FRAME_CH_DEFAULT,
+) -> bytes:
+    payload = build_brooks_kp_payload(values)
+    return build_frame(seq, brooks_response_cmd(BROOKS_GET_KP_CMD_L), payload, ch=ch)
+
+
+def decode_brooks_kp_payload(payload: bytes) -> Optional[tuple[float, ...]]:
+    bytes_per_value = BROOKS_KP_STATUS_LEN + BROOKS_KP_DOUBLE_LEN
+    if len(payload) != (BROOKS_KP_VALUE_COUNT * bytes_per_value):
+        return None
+
+    values = []
+    for index in range(BROOKS_KP_VALUE_COUNT):
+        offset = index * bytes_per_value
+        double_bytes = payload[offset + BROOKS_KP_STATUS_LEN:offset + bytes_per_value]
+        raw_value = struct.unpack('>d', double_bytes)[0]
+        values.append(raw_value / BROOKS_KP_SCALE)
+    return tuple(values)
 
 
 # --- Mock data ---

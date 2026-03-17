@@ -1,17 +1,32 @@
 """Tests for frame encoding/decoding and payload serialization."""
 
 from snet_tester.protocol.codec import (
+    build_brooks_get_kp_frame,
+    build_brooks_get_kp_response_frame,
     build_frame,
     build_io_payload_bytes,
     build_io_payload_model,
+    build_read_var_frame,
     build_write_var_frame,
     clamp_channel_count,
+    decode_brooks_kp_payload,
+    decode_var_value_payload,
     decode_frame_view,
     decode_io_payload,
     decode_snet_monitor_payload,
     default_io_payload,
 )
-from snet_tester.protocol.constants import HEADER, REQUEST_CMD, WRITE_VAR_CMD
+from snet_tester.protocol.constants import (
+    BROOKS_GET_KP_DUMMY_LEN,
+    BROOKS_GET_KP_CMD_L,
+    BROOKS_KP_DOUBLE_LEN,
+    BROOKS_KP_STATUS_LEN,
+    BROOKS_KP_VALUE_COUNT,
+    HEADER,
+    READ_VAR_CMD,
+    REQUEST_CMD,
+    WRITE_VAR_CMD,
+)
 
 
 def test_clamp_channel_count():
@@ -95,3 +110,42 @@ def test_build_write_var_frame():
     assert view.cmd == WRITE_VAR_CMD
     assert view.seq == 0x10
     assert view.length == 10  # 2 (var_index) + 8 (value)
+
+
+def test_build_read_var_frame():
+    frame = build_read_var_frame(0x11, 0x1000)
+    view = decode_frame_view(frame)
+    assert view.cmd == READ_VAR_CMD
+    assert view.seq == 0x11
+    assert view.length == 2
+    assert view.data == b'\x10\x00'
+
+
+def test_decode_var_value_payload():
+    decoded = decode_var_value_payload(b'\x10\x00' + (500).to_bytes(8, byteorder='big'))
+    assert decoded == (0x1000, 500)
+
+
+def test_build_brooks_get_kp_frame():
+    frame = build_brooks_get_kp_frame(0x22, ch=0x03)
+    view = decode_frame_view(frame)
+    assert view.seq == 0x22
+    assert view.ch == 0x03
+    assert view.cmd == 0x1000 | BROOKS_GET_KP_CMD_L
+    assert view.length == 1 + BROOKS_GET_KP_DUMMY_LEN
+    assert view.data == (bytes((BROOKS_KP_VALUE_COUNT,)) + (b'\x00' * BROOKS_GET_KP_DUMMY_LEN))
+
+
+def test_decode_brooks_kp_payload():
+    values = (0.0, 0.7, 0.5, 0.3, 0.0, 0.0)
+    response = build_brooks_get_kp_response_frame(0x22, values, ch=0x01)
+    decoded = decode_brooks_kp_payload(response[8:])
+    assert decoded is not None
+    assert len(response[8:]) == BROOKS_KP_VALUE_COUNT * (BROOKS_KP_STATUS_LEN + BROOKS_KP_DOUBLE_LEN)
+    assert len(decoded) == BROOKS_KP_VALUE_COUNT
+    for actual, expected in zip(decoded, values):
+        assert abs(actual - expected) < 1e-9
+
+
+def test_decode_brooks_kp_payload_rejects_bad_length():
+    assert decode_brooks_kp_payload(b'\x01\x00') is None

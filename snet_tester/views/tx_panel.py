@@ -3,7 +3,7 @@
 import json
 import pathlib
 import sys
-from typing import Optional
+from typing import Optional, Sequence
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -228,6 +228,10 @@ def _parse_ratio(text: str) -> Optional[float]:
         return None
 
 
+def _format_pid_value(value: float) -> str:
+    return f'{float(value):g}'
+
+
 class TxPanelView:
     def __init__(self, root: QtWidgets.QWidget, debug_root: QtWidgets.QWidget, font: QtGui.QFont):
         self._root = root
@@ -245,9 +249,31 @@ class TxPanelView:
 
         self.appliedLabel = find_optional_child(self._root, QtWidgets.QLabel, 'appliedLabel')
         self.txFrameMetaLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'txFrameMetaLabel')
+        self.pidTabInfoLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'pidTabInfoLabel')
+        self.controlVarTabInfoLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'controlVarTabInfoLabel')
+        self.pidTable = find_optional_child(debug_root, QtWidgets.QTableWidget, 'pidTable')
+        self.controlVarTable = find_optional_child(debug_root, QtWidgets.QTableWidget, 'controlVarTable')
+        self.labelKp = find_optional_child(debug_root, QtWidgets.QLabel, 'label_kp')
+        self.btnLoadKp = find_optional_child(debug_root, QtWidgets.QPushButton, 'btn_load_kp')
+        self.leKpVal0 = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_val0')
+        self.leKp10p = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_10p')
+        self.leKp30p = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_30p')
+        self.leKp100p = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_100p')
+        self.leKpVal4 = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_val4')
         self.modeToggle = find_optional_child(self._root, QtWidgets.QCheckBox, 'modeToggle')
         if self.modeToggle is not None:
             self.modeToggle = self._upgrade_mode_toggle(self.modeToggle)
+
+        self._kp_inputs = [
+            inp for inp in (
+                self.leKpVal0,
+                self.leKp10p,
+                self.leKp30p,
+                self.leKp100p,
+                self.leKpVal4,
+            ) if inp is not None
+        ]
+        self._kp_values: tuple[float, ...] = ()
 
         self._ratio_inputs: list[QtWidgets.QLineEdit] = [
             getattr(self, f'ratioInput{i}') for i in range(1, MAX_CHANNELS + 1)
@@ -280,6 +306,16 @@ class TxPanelView:
             self.appliedLabel.setFont(font)
         if self.txFrameMetaLabel is not None:
             self.txFrameMetaLabel.setFont(font)
+        if self.pidTabInfoLabel is not None:
+            self.pidTabInfoLabel.setFont(font)
+        if self.controlVarTabInfoLabel is not None:
+            self.controlVarTabInfoLabel.setFont(font)
+        if self.labelKp is not None:
+            self.labelKp.setToolTip('Brooks KP values')
+        if self.btnLoadKp is not None:
+            self.btnLoadKp.setToolTip('선택된 CH의 KP 값을 읽어옵니다.')
+        for inp in self._kp_inputs:
+            inp.setFont(font)
 
         # Preset table
         self.presetTable = find_optional_child(self._root, QtWidgets.QTableWidget, 'presetTable')
@@ -293,6 +329,8 @@ class TxPanelView:
 
         configure_plain_text_edit(self.txDataDump, font)
         self._configure_frame_table()
+        self._configure_aux_table(self.pidTable)
+        self._configure_aux_table(self.controlVarTable)
         self._update_channel_input_state()
         self.refresh_pending_previews()
         self._init_preset_table()
@@ -353,11 +391,50 @@ class TxPanelView:
             item.setTextAlignment(int(QtCore.Qt.AlignCenter))
             self._frame_items[field] = item
 
+    def _configure_aux_table(self, table: Optional[QtWidgets.QTableWidget]):
+        if table is None:
+            return
+
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        table.setWordWrap(False)
+        table.setFont(self._font)
+        table.verticalHeader().setVisible(False)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+
     def connect_actions(self, run_cb, stop_cb, set_cb):
         self.runButton.clicked.connect(run_cb)
         self.stopButton.clicked.connect(stop_cb)
         self.setButton.clicked.connect(set_cb)
         self._set_callback = set_cb
+
+    def visible_kp_field_count(self) -> int:
+        return len(self._kp_inputs)
+
+    def set_kp_values(self, relay_channel: int, values: Sequence[float]):
+        kp_values = tuple(float(value) for value in values)
+        self._kp_values = kp_values
+
+        for widget, value in zip(self._kp_inputs, kp_values):
+            widget.setText(_format_pid_value(value))
+
+        channel_text = 'ALL' if relay_channel == 0 else str(relay_channel)
+        tooltip_lines = [f'CH {channel_text}']
+        tooltip_lines.extend(f'KP{index} = {_format_pid_value(value)}' for index, value in enumerate(kp_values))
+        tooltip = '\n'.join(tooltip_lines)
+
+        if self.labelKp is not None:
+            self.labelKp.setToolTip(tooltip)
+        if self.btnLoadKp is not None:
+            self.btnLoadKp.setToolTip(tooltip)
+
+        if len(kp_values) > len(self._kp_inputs) and self._kp_inputs:
+            self._kp_inputs[-1].setToolTip(
+                f'KP{len(self._kp_inputs) - 1} = {_format_pid_value(kp_values[len(self._kp_inputs) - 1])}\n'
+                f'KP{len(self._kp_inputs)} = {_format_pid_value(kp_values[len(self._kp_inputs)])}'
+            )
 
     # --- Preset table ---
 

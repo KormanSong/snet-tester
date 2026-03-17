@@ -1,5 +1,10 @@
 """Tests for raw value conversion functions."""
 
+from snet_tester.protocol.constants import (
+    FLOW_FULL_SCALE_PERCENT,
+    PRESSURE_FULL_SCALE_PSI,
+    TEMPERATURE_FULL_SCALE_C,
+)
 from snet_tester.protocol.convert import (
     flow_raw_to_display,
     pressure_raw_to_psi,
@@ -32,19 +37,19 @@ def test_ratio_zero_and_full():
 
 def test_temperature_conversion():
     assert temperature_raw_to_celsius(0) == 0.0
-    assert temperature_raw_to_celsius(0x8000) == 100.0
+    assert temperature_raw_to_celsius(0x8000) == TEMPERATURE_FULL_SCALE_C
     mid = temperature_raw_to_celsius(0x4000)
-    assert abs(mid - 50.0) < 0.01
+    assert abs(mid - (TEMPERATURE_FULL_SCALE_C / 2.0)) < 0.01
 
 
 def test_pressure_conversion():
     assert pressure_raw_to_psi(0) == 0.0
-    assert pressure_raw_to_psi(0x8000) == 100.0
+    assert pressure_raw_to_psi(0x8000) == PRESSURE_FULL_SCALE_PSI
 
 
 def test_flow_raw_to_display():
     assert flow_raw_to_display(0) == 0.0
-    assert flow_raw_to_display(0x8000) == 100.0
+    assert flow_raw_to_display(0x8000) == FLOW_FULL_SCALE_PERCENT
 
 
 def test_valve_raw_to_display():
