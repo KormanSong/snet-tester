@@ -15,7 +15,12 @@ def _package_dir() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parent.parent
 
 
-UI_DIR = _package_dir() / 'ui'
+RESOURCE_DIR = _package_dir() / 'resources'
+UI_DIR = RESOURCE_DIR / 'ui'
+
+
+def resource_path(*parts: str) -> pathlib.Path:
+    return RESOURCE_DIR.joinpath(*parts)
 
 
 def ui_path(filename: str) -> pathlib.Path:

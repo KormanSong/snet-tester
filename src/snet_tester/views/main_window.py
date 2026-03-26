@@ -47,6 +47,10 @@ from .response_tracker import ResponseTimeTracker
 
 UI_TIMER_MS = 20
 MOCK_LATENCY_MS = 5.0
+MAIN_WINDOW_START_SIZE = (1280, 820)
+MAIN_WINDOW_MIN_SIZE = (1120, 760)
+PLOT_PANEL_MIN_WIDTH = 740
+SIDE_PANEL_WIDTH = 455
 
 MAIN_WINDOW_OBJECTS = {
     'txPanel': QtWidgets.QWidget,
@@ -107,11 +111,10 @@ class MainWindow(QtWidgets.QMainWindow):
         for name, child_type in MAIN_WINDOW_OBJECTS.items():
             setattr(self, name, require_child(self, child_type, name))
 
-        # Fix right panel width
-        RIGHT_PANEL_WIDTH = 459
+        self.plotPanel.setMinimumWidth(PLOT_PANEL_MIN_WIDTH)
         for panel in (self.txPanel, self.rxPanel):
-            panel.setMinimumWidth(RIGHT_PANEL_WIDTH)
-            panel.setMaximumWidth(RIGHT_PANEL_WIDTH)
+            panel.setMinimumWidth(SIDE_PANEL_WIDTH)
+            panel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
 
         self._mock_mode = mock_mode
         self._shutdown_done = False
@@ -159,9 +162,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self._init_relay_channel_selector()
         self.calibrationGroup = self._build_calibration_group()
         if self.calibrationGroup is not None:
-            self.calibrationGroup.setMinimumWidth(RIGHT_PANEL_WIDTH)
-            self.calibrationGroup.setMaximumWidth(RIGHT_PANEL_WIDTH)
-        self.resize(1220, self.height())
+            self.calibrationGroup.setMinimumWidth(SIDE_PANEL_WIDTH)
+            self.calibrationGroup.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+
+        central_layout = self.centralWidget().layout()
+        if isinstance(central_layout, QtWidgets.QHBoxLayout):
+            central_layout.setContentsMargins(6, 6, 6, 6)
+            central_layout.setSpacing(6)
+            central_layout.setStretch(0, 5)
+            central_layout.setStretch(1, 2)
+
+        plot_layout = self.plotPanel.layout()
+        if isinstance(plot_layout, QtWidgets.QLayout):
+            plot_layout.setContentsMargins(6, 6, 6, 6)
+            plot_layout.setSpacing(4)
+
+        self.setMinimumSize(*MAIN_WINDOW_MIN_SIZE)
+        self.resize(*MAIN_WINDOW_START_SIZE)
 
         # Port combo — starts empty, connect on selection
         self._port_combo = find_optional_child(self.txPanel, QtWidgets.QComboBox, 'portCombo')
@@ -178,15 +195,12 @@ class MainWindow(QtWidgets.QMainWindow):
         for name, child_type in PLOT_PANEL_OBJECTS.items():
             setattr(self, name, require_child(self.plotPanel, child_type, name))
 
-        self.graphHintLabel = self.plotPanel.findChild(QtWidgets.QLabel, 'graphHintLabel')
-        if self.graphHintLabel is not None:
-            self.graphHintLabel.setWordWrap(True)
-
         toggle_buttons = {}
         for ch in range(1, MAX_CHANNELS + 1):
             toggle_buttons[(ch - 1, 'tx')] = getattr(self, f'legendTx{ch}Button')
             toggle_buttons[(ch - 1, 'rx')] = getattr(self, f'legendRx{ch}Button')
         self.plot_view = PlotView(self.plotPanel, self.plotHost, toggle_buttons, fixed_font)
+        self.plot_view.note_applied_payload(self._applied_payload)
 
         self.tx_panel.connect_actions(self._on_run_clicked, self._on_stop_clicked, self._on_set_clicked)
         if self.rx_panel.adCommandCheckBox is not None:
@@ -218,6 +232,9 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             # Don't start worker yet — wait for port selection
             self.statusBar().showMessage('Select COM port to connect')
+
+    def minimumSizeHint(self):
+        return QtCore.QSize(*MAIN_WINDOW_MIN_SIZE)
 
     def _init_relay_channel_selector(self):
         buttons = {channel: button for channel, button in self._relay_channel_buttons.items() if button is not None}
@@ -277,8 +294,8 @@ class MainWindow(QtWidgets.QMainWindow):
         calibration_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
 
         group_layout = QtWidgets.QVBoxLayout(calibration_group)
-        group_layout.setContentsMargins(8, 8, 8, 8)
-        group_layout.setSpacing(4)
+        group_layout.setContentsMargins(6, 6, 6, 6)
+        group_layout.setSpacing(3)
 
         if isinstance(self.relayChannelBar, QtWidgets.QGroupBox):
             self.relayChannelBar.setTitle('')
@@ -290,7 +307,17 @@ class MainWindow(QtWidgets.QMainWindow):
         right_layout.removeWidget(self.relayChannelBar)
         right_layout.removeWidget(self.debugTabWidget)
         group_layout.addWidget(self.relayChannelBar)
-        group_layout.addWidget(self.debugTabWidget, 1)
+        debug_scroll = QtWidgets.QScrollArea(calibration_group)
+        debug_scroll.setObjectName('calibrationScrollArea')
+        debug_scroll.setWidgetResizable(True)
+        debug_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        debug_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        debug_scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        debug_scroll.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.debugTabWidget.setMinimumSize(0, 0)
+        self.debugTabWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        debug_scroll.setWidget(self.debugTabWidget)
+        group_layout.addWidget(debug_scroll, 1)
         right_layout.insertWidget(min(relay_index, debug_index), calibration_group)
 
         return calibration_group
@@ -330,11 +357,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self._applied_payload = payload
             self.tx_panel.set_applied_payload(payload, highlight_inputs=self._awaiting_apply_feedback)
             self._awaiting_apply_feedback = False
+            self.plot_view.note_applied_payload(payload)
             self.plot_view.set_series_counts(tx_count=payload.channel_count)
             # Response time: start measurement
             self._response_tracker.start(payload, self._last_rx_monitor)
             if self._response_tracker.is_active and self.plot_view.plotLastUpdateValueLabel is not None:
-                self.plot_view.plotLastUpdateValueLabel.setText('--')
+                self.plot_view.plotLastUpdateValueLabel.setText('-- s')
             return
 
         if kind == 'tx_frame':
@@ -379,7 +407,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # Response time check
             elapsed = self._response_tracker.check(event)
             if elapsed is not None and self.plot_view.plotLastUpdateValueLabel is not None:
-                self.plot_view.plotLastUpdateValueLabel.setText(f'{elapsed:.2f}')
+                self.plot_view.plotLastUpdateValueLabel.setText(f'{elapsed:.2f} s')
 
             if event.success:
                 self._success_count += 1

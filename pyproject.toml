@@ -1,8 +1,12 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "usart-tool"
 version = "0.1.0"
 description = "USART I/O Mode Tool"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "PyQt5>=5.15",
     "PyQt5-Qt5>=5.15",
@@ -13,8 +17,21 @@ dependencies = [
     "matplotlib",
 ]
 
+[project.scripts]
+snet-tester = "snet_tester.main:main"
+
 [tool.setuptools]
-packages = ["snet_tester", "snet_tester.comm", "snet_tester.protocol", "snet_tester.views", "snet_tester.tests"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+snet_tester = ["resources/presets.json", "resources/ui/*.ui"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
 
 [dependency-groups]
 dev = [

@@ -22,7 +22,7 @@ $robocopyArgs = @(
     $SourceRoot,
     $TempRoot,
     '/MIR',
-    '/XD', '.git', '.venv', 'build', 'dist', '__pycache__', '.pytest_cache',
+    '/XD', '.git', '.venv', '.uv-cache', 'build', 'dist', '__pycache__', '.pytest_cache',
     '/XF', '*.pyc', '*.pyo'
 )
 robocopy @robocopyArgs | Out-Host

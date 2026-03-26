@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1220</width>
-    <height>812</height>
+    <width>1280</width>
+    <height>820</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -29,6 +29,18 @@
       <layout class="QVBoxLayout" name="plotPanelLayout">
        <item>
         <widget class="QFrame" name="graphStatusFrame">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>62</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>62</height>
+          </size>
+         </property>
          <property name="frameShape">
           <enum>QFrame::StyledPanel</enum>
          </property>
@@ -36,6 +48,21 @@
           <enum>QFrame::Raised</enum>
          </property>
          <layout class="QGridLayout" name="graphStatusLayout">
+          <property name="spacing">
+           <number>4</number>
+          </property>
+          <property name="leftMargin">
+           <number>4</number>
+          </property>
+          <property name="topMargin">
+           <number>2</number>
+          </property>
+          <property name="rightMargin">
+           <number>4</number>
+          </property>
+          <property name="bottomMargin">
+           <number>2</number>
+          </property>
           <item row="0" column="0">
            <widget class="QLabel" name="plotRunCaptionLabel">
             <property name="text">
@@ -53,7 +80,7 @@
           <item row="0" column="1">
            <widget class="QLabel" name="plotRxStateCaptionLabel">
             <property name="text">
-             <string>I/O통신</string>
+             <string>I/O</string>
             </property>
            </widget>
           </item>
@@ -95,7 +122,7 @@
           <item row="0" column="4">
            <widget class="QLabel" name="plotLastUpdateCaptionLabel">
             <property name="text">
-             <string>응답시간</string>
+             <string>LATENCY</string>
             </property>
            </widget>
           </item>
@@ -109,7 +136,7 @@
           <item row="0" column="5">
            <widget class="QLabel" name="plotTimeoutCaptionLabel">
             <property name="text">
-             <string>타임아웃</string>
+             <string>TIMEOUT</string>
             </property>
            </widget>
           </item>
@@ -137,67 +164,44 @@
          <property name="frameShadow">
           <enum>QFrame::Sunken</enum>
          </property>
-         <layout class="QVBoxLayout" name="plotHostLayout">
-          <item>
-           <widget class="QLabel" name="plotPlaceholderTitle">
-            <property name="text">
-             <string>PyQtGraph runtime area</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="plotPlaceholderHint">
-            <property name="text">
-             <string>Designer preview only. Run: python -m snet_tester --mock</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-            <property name="wordWrap">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="horizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item>
-           <spacer name="plotVerticalSpacer">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
+         <layout class="QVBoxLayout" name="plotHostLayout"/>
         </widget>
        </item>
        <item>
         <widget class="QGroupBox" name="graphSettingsGroup">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>90</height>
+          </size>
+         </property>
          <property name="title">
-          <string>그래프 세팅</string>
+          <string>Trend Channels</string>
          </property>
          <layout class="QVBoxLayout" name="graphSettingsLayout">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <property name="leftMargin">
+           <number>2</number>
+          </property>
+          <property name="topMargin">
+           <number>2</number>
+          </property>
+          <property name="rightMargin">
+           <number>2</number>
+          </property>
+          <property name="bottomMargin">
+           <number>2</number>
+          </property>
           <item>
            <layout class="QGridLayout" name="legendGridLayout">
+            <property name="horizontalSpacing">
+             <number>2</number>
+            </property>
+            <property name="verticalSpacing">
+             <number>2</number>
+            </property>
             <item row="0" column="0">
              <spacer name="legendSpacer">
               <property name="orientation">
@@ -2041,7 +2045,7 @@ QHeaderView::section {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1400</width>
+     <width>1280</width>
      <height>21</height>
     </rect>
    </property>
@@ -2051,3 +2055,5 @@ QHeaderView::section {
  <resources/>
  <connections/>
 </ui>
+
+

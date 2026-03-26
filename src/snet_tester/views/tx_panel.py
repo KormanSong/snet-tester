@@ -152,6 +152,7 @@ from .helpers import (
     configure_plain_text_edit,
     ensure_table_shape,
     find_optional_child,
+    resource_path,
     require_child,
 )
 
@@ -177,14 +178,12 @@ def _presets_path() -> pathlib.Path:
     """Return writable presets.json path; falls back to bundled default."""
     if getattr(sys, 'frozen', False):
         return pathlib.Path(sys.executable).parent / 'presets.json'
-    return pathlib.Path(__file__).resolve().parent.parent / 'presets.json'
+    return resource_path('presets.json')
 
 
 def _bundled_presets_path() -> pathlib.Path:
     """Return the bundled (read-only) presets.json inside PyInstaller bundle."""
-    if getattr(sys, 'frozen', False):
-        return pathlib.Path(sys._MEIPASS) / 'snet_tester' / 'presets.json'
-    return pathlib.Path(__file__).resolve().parent.parent / 'presets.json'
+    return resource_path('presets.json')
 
 
 PRESETS_FILE = _presets_path()
