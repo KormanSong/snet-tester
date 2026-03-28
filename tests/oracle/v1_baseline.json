@@ -1,0 +1,267 @@
+{
+  "version": "v1",
+  "scenarios": {
+    "s1": {
+      "name": "s1_basic_sample_loop",
+      "cycle_count": 100,
+      "success_count": 100,
+      "fail_count": 0,
+      "latency": {
+        "count": 100,
+        "mean": 5.0,
+        "stdev": 0.0,
+        "min": 5.0,
+        "max": 5.0
+      },
+      "rx_ratio_ch1": {
+        "count": 100,
+        "mean": 0.0,
+        "stdev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "samples": [
+        {
+          "index": 1,
+          "seq": 192,
+          "success": true,
+          "latency_ms": 5.0,
+          "tx_channel_count": 1,
+          "tx_ratios": [
+            0.0
+          ],
+          "rx_ratio_ch1_percent": 0.0,
+          "request_hex": "a55ac0000080000400000000",
+          "response_hex": "a55ac0000081000e0000207a19741200000000000000"
+        },
+        {
+          "index": 2,
+          "seq": 193,
+          "success": true,
+          "latency_ms": 5.0,
+          "tx_channel_count": 1,
+          "tx_ratios": [
+            0.0
+          ],
+          "rx_ratio_ch1_percent": 0.0,
+          "request_hex": "a55ac1000080000400000000",
+          "response_hex": "a55ac1000081000e0000207a19741200000000000000"
+        },
+        {
+          "index": 3,
+          "seq": 194,
+          "success": true,
+          "latency_ms": 5.0,
+          "tx_channel_count": 1,
+          "tx_ratios": [
+            0.0
+          ],
+          "rx_ratio_ch1_percent": 0.0,
+          "request_hex": "a55ac2000080000400000000",
+          "response_hex": "a55ac2000081000e0000207a19741200000000000000"
+        },
+        {
+          "index": 4,
+          "seq": 195,
+          "success": true,
+          "latency_ms": 5.0,
+          "tx_channel_count": 1,
+          "tx_ratios": [
+            0.0
+          ],
+          "rx_ratio_ch1_percent": 0.0,
+          "request_hex": "a55ac3000080000400000000",
+          "response_hex": "a55ac3000081000e0000207a19741200000000000000"
+        },
+        {
+          "index": 5,
+          "seq": 196,
+          "success": true,
+          "latency_ms": 5.0,
+          "tx_channel_count": 1,
+          "tx_ratios": [
+            0.0
+          ],
+          "rx_ratio_ch1_percent": 0.0,
+          "request_hex": "a55ac4000080000400000000",
+          "response_hex": "a55ac4000081000e0000207a19741200000000000000"
+        }
+      ]
+    },
+    "s2": {
+      "name": "s2_setpoint_apply",
+      "cycle_count": 100,
+      "apply_at_cycle": 50,
+      "payload_before": {
+        "channel_count": 1,
+        "ratios": [
+          0.0
+        ]
+      },
+      "payload_after": {
+        "channel_count": 3,
+        "ratios": [
+          50.0,
+          30.0,
+          20.0
+        ]
+      },
+      "latency": {
+        "count": 100,
+        "mean": 5.0,
+        "stdev": 0.0,
+        "min": 5.0,
+        "max": 5.0
+      },
+      "rx_ratio_ch1_before": {
+        "count": 50,
+        "mean": 0.0,
+        "stdev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "rx_ratio_ch1_after": {
+        "count": 50,
+        "mean": 50.0,
+        "stdev": 0.0,
+        "min": 50.0,
+        "max": 50.0
+      },
+      "samples_at_boundary": [
+        {
+          "index": 50,
+          "seq": 241,
+          "success": true,
+          "latency_ms": 5.0,
+          "tx_channel_count": 1,
+          "tx_ratios": [
+            0.0
+          ],
+          "rx_ratio_ch1_percent": 0.0,
+          "request_hex": "a55af1000080000400000000",
+          "response_hex": "a55af1000081000e0000207a19741200000000000000"
+        },
+        {
+          "index": 51,
+          "seq": 242,
+          "success": true,
+          "latency_ms": 5.0,
+          "tx_channel_count": 3,
+          "tx_ratios": [
+            50.0,
+            29.998779296875,
+            20.001220703125
+          ],
+          "rx_ratio_ch1_percent": 50.0,
+          "request_hex": "a55af2000080000a0000400000266600199a",
+          "response_hex": "a55af2000081001e0000207a197413000080400040001499004c2666266616660033199a199a"
+        },
+        {
+          "index": 52,
+          "seq": 243,
+          "success": true,
+          "latency_ms": 5.0,
+          "tx_channel_count": 3,
+          "tx_ratios": [
+            50.0,
+            29.998779296875,
+            20.001220703125
+          ],
+          "rx_ratio_ch1_percent": 50.0,
+          "request_hex": "a55af3000080000a0000400000266600199a",
+          "response_hex": "a55af3000081001e0000207a197413000080400040001499004c2666266616660033199a199a"
+        }
+      ]
+    },
+    "s3": {
+      "name": "s3_write_var_skip",
+      "total_timer_ticks": 20,
+      "write_var_at_tick": 5,
+      "actual_samples": 18,
+      "skipped_cycles": 1,
+      "expected_skipped": 1,
+      "timeline_summary": [
+        {
+          "tick": 0,
+          "type": "sample"
+        },
+        {
+          "tick": 1,
+          "type": "sample"
+        },
+        {
+          "tick": 2,
+          "type": "sample"
+        },
+        {
+          "tick": 3,
+          "type": "sample"
+        },
+        {
+          "tick": 4,
+          "type": "sample"
+        },
+        {
+          "tick": 5,
+          "type": "write_var"
+        },
+        {
+          "tick": 6,
+          "type": "skipped"
+        },
+        {
+          "tick": 7,
+          "type": "sample"
+        },
+        {
+          "tick": 8,
+          "type": "sample"
+        },
+        {
+          "tick": 9,
+          "type": "sample"
+        },
+        {
+          "tick": 10,
+          "type": "sample"
+        },
+        {
+          "tick": 11,
+          "type": "sample"
+        },
+        {
+          "tick": 12,
+          "type": "sample"
+        },
+        {
+          "tick": 13,
+          "type": "sample"
+        },
+        {
+          "tick": 14,
+          "type": "sample"
+        },
+        {
+          "tick": 15,
+          "type": "sample"
+        },
+        {
+          "tick": 16,
+          "type": "sample"
+        },
+        {
+          "tick": 17,
+          "type": "sample"
+        },
+        {
+          "tick": 18,
+          "type": "sample"
+        },
+        {
+          "tick": 19,
+          "type": "sample"
+        }
+      ]
+    }
+  }
+}
