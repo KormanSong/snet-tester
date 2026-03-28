@@ -19,6 +19,9 @@ dependencies = [
 
 [project.scripts]
 snet-tester = "snet_tester.main:main"
+snet-layout-preview = "snet_tester.layout_preview:main"
+snet-graph-mockup-preview = "snet_tester.graph_mockup_preview:main"
+snet-designer = "snet_tester._designer:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
