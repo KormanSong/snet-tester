@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run:*)",
+      "Bash(echo \"PYTEST_EXIT_CODE=$?\")",
+      "Bash(find /c/work/snet-tester -name *.pyc -not -path */.venv/* -not -path */.uv-cache/*)",
+      "Bash(grep -n \"^class\\\\|^def\" src/snet_tester/views/*.py)",
+      "Bash(grep -n \"^class\\\\|^def\\\\|^@dataclass\" src/snet_tester/protocol/*.py)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git rm:*)",
+      "Bash(find . -name __pycache__ -not -path './.venv/*' -not -path './.uv-cache/*' -exec rm -rf {} +)"
+    ]
+  }
+}
