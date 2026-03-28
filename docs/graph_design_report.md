@@ -11,7 +11,7 @@
 - If the overall application tone later moves toward a Win XP style gray, the correct fallback is a `white paper graph`.
 
 ## Inputs
-- Current code uses a single `PlotTheme` inside [`plot_view.py`](C:/Users/xcvoi/work/snet-tester/src/snet_tester/views/plot_view.py).
+- Current code uses a single `PlotTheme` inside [`plot_view.py`](C:/Users/xcvoi/work/snet-tester/snet_tester/views/plot_view.py).
 - Current graph area is visually close to the rest of the panel background.
 - Boss requirement:
   - Graph and non-graph areas must be clearly separated.
@@ -157,11 +157,11 @@
 
 ## Output Artifacts
 - Comparison image: [`graph_theme_comparison.png`](C:/Users/xcvoi/work/snet-tester/artifacts/graph_theme_comparison.png)
-- Preview generator: [`graph_theme_preview.py`](C:/Users/xcvoi/work/snet-tester/src/snet_tester/graph_theme_preview.py)
+- Preview generator: `graph_theme_preview.py` (removed — one-time design tool, see git history)
 
 ## PM Recommendation To Boss
 - Approve `Scope Black` as the default graph direction for this product.
 - Keep `White Paper` as a supported fallback theme policy, not as the primary current direction.
 - If you want, next step is to convert this report into:
   - a `graph-specific Screen Spec`, or
-  - an actual refactor of [`plot_view.py`](C:/Users/xcvoi/work/snet-tester/src/snet_tester/views/plot_view.py)
+  - an actual refactor of [`plot_view.py`](C:/Users/xcvoi/work/snet-tester/snet_tester/views/plot_view.py)

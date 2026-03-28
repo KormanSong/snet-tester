@@ -2,7 +2,7 @@
 
 > **등급**: P0 — 모든 Phase, 모든 작업에서 최우선 준수
 > **제정일**: 2026-03-28
-> **적용 범위**: src/snet_tester/views/*.py, resources/ui/*.ui
+> **적용 범위**: snet_tester/views/*.py, resources/ui/*.ui
 
 ---
 
