@@ -231,6 +231,45 @@ def _format_pid_value(value: float) -> str:
     return f'{float(value):g}'
 
 
+# --- PID / Control variable compact button styles ---
+
+_MICRO_BTN_STYLE = (
+    'QPushButton {'
+    ' font-size: 9pt; font-weight: 600;'
+    ' padding: 1px 4px;'
+    ' min-height: 20px; max-height: 22px;'
+    ' border: 1px solid #888; border-radius: 0px;'
+    ' background: #E8E8E8; color: #000;'
+    '}'
+    'QPushButton:hover { background: #D8DEE4; border-color: #555; }'
+    'QPushButton:pressed { background: #CCD4DC; }'
+)
+
+_MICRO_BTN_DIRTY_STYLE = (
+    'QPushButton {'
+    ' font-size: 9pt; font-weight: 600;'
+    ' padding: 1px 4px;'
+    ' min-height: 20px; max-height: 22px;'
+    ' border: 1px solid #E9912E; border-radius: 0px;'
+    ' background: #FFF3E0; color: #000;'
+    '}'
+    'QPushButton:hover { background: #FFE0B2; border-color: #E65100; }'
+    'QPushButton:pressed { background: #FFCC80; }'
+)
+
+_PID_CLEAN_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }'
+)
+_PID_DIRTY_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa;'
+    ' border-left: 3px solid #E9912E; padding: 1px 2px 1px 0px; }'
+)
+_PID_SYNCED_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa;'
+    ' border-left: 3px solid #4CAF50; padding: 1px 2px 1px 0px; }'
+)
+
+
 class TxPanelView:
     def __init__(self, root: QtWidgets.QWidget, debug_root: QtWidgets.QWidget, font: QtGui.QFont):
         self._root = root
@@ -253,12 +292,16 @@ class TxPanelView:
         self.pidTable = find_optional_child(debug_root, QtWidgets.QTableWidget, 'pidTable')
         self.controlVarTable = find_optional_child(debug_root, QtWidgets.QTableWidget, 'controlVarTable')
         self.labelKp = find_optional_child(debug_root, QtWidgets.QLabel, 'label_kp')
-        self.btnLoadKp = find_optional_child(debug_root, QtWidgets.QPushButton, 'btn_load_kp')
         self.leKpVal0 = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_val0')
         self.leKp10p = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_10p')
         self.leKp30p = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_30p')
         self.leKp100p = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_100p')
         self.leKpVal4 = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_val4')
+
+        # Style PID and control variable buttons, wire dirty tracking
+        self._pid_loaded_values: dict[str, str] = {}
+        self._setup_pid_buttons(debug_root)
+
         self.modeToggle = find_optional_child(self._root, QtWidgets.QCheckBox, 'modeToggle')
         if self.modeToggle is not None:
             self.modeToggle = self._upgrade_mode_toggle(self.modeToggle)
@@ -290,9 +333,7 @@ class TxPanelView:
         validator.setNotation(QtGui.QDoubleValidator.StandardNotation)
         for inp in self._ratio_inputs:
             inp.setValidator(validator)
-            inp.setFont(font)
-            inp.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-            inp.setStyleSheet(_RATIO_BASE_STYLE)
+            # alignment and base styleSheet are set in .ui
             inp.textChanged.connect(self._on_ratio_text_changed)
             inp.installEventFilter(self._root)
 
@@ -301,20 +342,7 @@ class TxPanelView:
         for inp in self._ratio_inputs:
             inp.installEventFilter(self._tooltip_filter)
 
-        if self.appliedLabel is not None:
-            self.appliedLabel.setFont(font)
-        if self.txFrameMetaLabel is not None:
-            self.txFrameMetaLabel.setFont(font)
-        if self.pidTabInfoLabel is not None:
-            self.pidTabInfoLabel.setFont(font)
-        if self.controlVarTabInfoLabel is not None:
-            self.controlVarTabInfoLabel.setFont(font)
-        if self.labelKp is not None:
-            self.labelKp.setToolTip('Brooks KP values')
-        if self.btnLoadKp is not None:
-            self.btnLoadKp.setToolTip('선택된 CH의 KP 값을 읽어옵니다.')
-        for inp in self._kp_inputs:
-            inp.setFont(font)
+        # labelKp toolTip is set in .ui
 
         # Preset table
         self.presetTable = find_optional_child(self._root, QtWidgets.QTableWidget, 'presetTable')
@@ -328,8 +356,7 @@ class TxPanelView:
 
         configure_plain_text_edit(self.txDataDump, font)
         self._configure_frame_table()
-        self._configure_aux_table(self.pidTable)
-        self._configure_aux_table(self.controlVarTable)
+        # pidTable / controlVarTable header properties are set in .ui (if present)
         self._update_channel_input_state()
         self.refresh_pending_previews()
         self._init_preset_table()
@@ -371,16 +398,90 @@ class TxPanelView:
 
         return False
 
+    # --- Compact PID / Control variable buttons & dirty state ---
+
+    def _setup_pid_buttons(self, debug_root: QtWidgets.QWidget):
+        """Style compact [저장][읽기] button pairs and wire dirty-state tracking."""
+        _BTN_GROUPS = [
+            ('btn_save_kp', 'btn_load_kp', 'EEPROM KP'),
+            ('btn_save_ki', 'btn_load_ki', 'EEPROM KI'),
+            ('btn_save_kd', 'btn_load_kd', 'EEPROM KD'),
+            ('btn_save_ctrl', 'btn_load_ctrl', 'EEPROM 제어변수'),
+        ]
+        self._pid_save_buttons: dict[str, QtWidgets.QPushButton] = {}
+        self._pid_load_buttons: dict[str, QtWidgets.QPushButton] = {}
+
+        for save_name, load_name, group_label in _BTN_GROUPS:
+            save_btn = find_optional_child(debug_root, QtWidgets.QPushButton, save_name)
+            load_btn = find_optional_child(debug_root, QtWidgets.QPushButton, load_name)
+            if save_btn is not None:
+                self._pid_save_buttons[save_name] = save_btn
+            if load_btn is not None:
+                self._pid_load_buttons[load_name] = load_btn
+
+        # Preserve public reference for existing code
+        # toolTips are set in .ui
+        self.btnLoadKp = self._pid_load_buttons.get('btn_load_kp')
+
+        # Wire dirty-state tracking on KP inputs
+        for inp in (self.leKpVal0, self.leKp10p, self.leKp30p, self.leKp100p, self.leKpVal4):
+            if inp is not None:
+                inp.setStyleSheet(_PID_CLEAN_STYLE)
+                self._pid_loaded_values[inp.objectName()] = inp.text()
+                inp.textChanged.connect(self._make_pid_field_handler(inp))
+
+    def _make_pid_field_handler(self, widget: QtWidgets.QLineEdit):
+        """Create a textChanged handler bound to a specific widget."""
+        def handler(_text: str):
+            name = widget.objectName()
+            loaded = self._pid_loaded_values.get(name)
+            is_dirty = loaded is not None and widget.text() != loaded
+            widget.setStyleSheet(_PID_DIRTY_STYLE if is_dirty else _PID_CLEAN_STYLE)
+            self._update_pid_save_button_state()
+        return handler
+
+    def _update_pid_save_button_state(self):
+        """Set amber style on save buttons when their column has dirty fields."""
+        column_map = {
+            'btn_save_kp': ('le_kp_val0', 'le_kp_10p', 'le_kp_30p', 'le_kp_100p', 'le_kp_val4'),
+        }
+        for btn_name, field_names in column_map.items():
+            btn = self._pid_save_buttons.get(btn_name)
+            if btn is None:
+                continue
+            has_dirty = False
+            for field_name in field_names:
+                loaded = self._pid_loaded_values.get(field_name)
+                if loaded is None:
+                    continue
+                widget = self._root.parent().findChild(QtWidgets.QLineEdit, field_name)
+                if widget is not None and widget.text() != loaded:
+                    has_dirty = True
+                    break
+            btn.setStyleSheet(_MICRO_BTN_DIRTY_STYLE if has_dirty else _MICRO_BTN_STYLE)
+
+    def _mark_pid_synced(self, field_names: Sequence[str]):
+        """Flash green border after successful save/load, then revert to clean."""
+        for name in field_names:
+            widget = self._root.parent().findChild(QtWidgets.QLineEdit, name)
+            if widget is not None:
+                self._pid_loaded_values[name] = widget.text()
+                widget.setStyleSheet(_PID_SYNCED_STYLE)
+        self._update_pid_save_button_state()
+        QtCore.QTimer.singleShot(1500, lambda: self._revert_pid_to_clean(field_names))
+
+    def _revert_pid_to_clean(self, field_names: Sequence[str]):
+        for name in field_names:
+            widget = self._root.parent().findChild(QtWidgets.QLineEdit, name)
+            if widget is not None:
+                widget.setStyleSheet(_PID_CLEAN_STYLE)
+
     def _configure_frame_table(self):
         table = self.txFrameTable
         ensure_table_shape(table, 1, len(FRAME_FIXED_FIELDS), 'txFrameTable')
-        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        table.setFocusPolicy(QtCore.Qt.NoFocus)
-        table.setWordWrap(False)
-        table.setFont(self._font)
+        # editTriggers, selectionMode, focusPolicy, wordWrap are set in .ui
+        # ui-override: Designer 미지원 — QHeaderView.Stretch
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-        table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
         for col, field in enumerate(FRAME_FIXED_FIELDS):
             item = table.item(0, col)
@@ -389,19 +490,6 @@ class TxPanelView:
                 table.setItem(0, col, item)
             item.setTextAlignment(int(QtCore.Qt.AlignCenter))
             self._frame_items[field] = item
-
-    def _configure_aux_table(self, table: Optional[QtWidgets.QTableWidget]):
-        if table is None:
-            return
-
-        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        table.setWordWrap(False)
-        table.setFont(self._font)
-        table.verticalHeader().setVisible(False)
-        table.horizontalHeader().setStretchLastSection(True)
-        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
     def connect_actions(self, run_cb, stop_cb, set_cb):
         self.runButton.clicked.connect(run_cb)
@@ -435,6 +523,10 @@ class TxPanelView:
                 f'KP{len(self._kp_inputs)} = {_format_pid_value(kp_values[len(self._kp_inputs)])}'
             )
 
+        # Mark KP fields as synced (green flash → clean)
+        kp_field_names = [inp.objectName() for inp in self._kp_inputs]
+        self._mark_pid_synced(kp_field_names)
+
     # --- Preset table ---
 
     def _init_preset_table(self):
@@ -443,27 +535,12 @@ class TxPanelView:
         table = self.presetTable
         self._last_applied_row = -1
 
-        # Compact font
-        preset_font = QtGui.QFont(self._font)
-        preset_font.setPointSize(8)
-        table.setFont(preset_font)
-
-        # Hide headers, tight row height
-        table.horizontalHeader().hide()
-        table.verticalHeader().setVisible(False)
-        table.verticalHeader().setDefaultSectionSize(18)
-        table.verticalHeader().setMinimumSectionSize(18)
-
-        # Minimal cell padding via stylesheet
-        table.setStyleSheet('QTableWidget::item { padding: 0px 2px; }')
-
-        # Stretch CH columns, fix APPLY column width
+        # Font, stylesheet, editTriggers, scrollMode, header visibility,
+        # row height, and stretchLastSection are set in .ui.
+        # Fix APPLY column width (per-column resize mode not representable in .ui)
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         table.horizontalHeader().setSectionResizeMode(APPLY_COL, QtWidgets.QHeaderView.Fixed)
         table.setColumnWidth(APPLY_COL, 30)
-
-        # Scroll: 0.75 row per wheel tick (pixel-based)
-        table.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
         table.wheelEvent = lambda event: _FractionalRowScrollTable.wheelEvent(table, event)
 
         presets = self._load_presets()

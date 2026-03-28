@@ -49,7 +49,6 @@ UI_TIMER_MS = 20
 MOCK_LATENCY_MS = 5.0
 MAIN_WINDOW_START_SIZE = (1280, 820)
 MAIN_WINDOW_MIN_SIZE = (1120, 760)
-PLOT_PANEL_MIN_WIDTH = 740
 SIDE_PANEL_WIDTH = 455
 
 MAIN_WINDOW_OBJECTS = {
@@ -111,10 +110,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for name, child_type in MAIN_WINDOW_OBJECTS.items():
             setattr(self, name, require_child(self, child_type, name))
 
-        self.plotPanel.setMinimumWidth(PLOT_PANEL_MIN_WIDTH)
-        for panel in (self.txPanel, self.rxPanel):
-            panel.setMinimumWidth(SIDE_PANEL_WIDTH)
-            panel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        # plotPanel minimumWidth, txPanel/rxPanel sizePolicy and minimumWidth are set in .ui
 
         self._mock_mode = mock_mode
         self._shutdown_done = False
@@ -162,23 +158,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self._init_relay_channel_selector()
         self.calibrationGroup = self._build_calibration_group()
         if self.calibrationGroup is not None:
+            # ui-override: 동적 생성 위젯 — .ui 이관 대상
             self.calibrationGroup.setMinimumWidth(SIDE_PANEL_WIDTH)
             self.calibrationGroup.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
+        # ui-override: Designer 미지원 — QHBoxLayout stretch는 .ui XML에 표현 불가
         central_layout = self.centralWidget().layout()
         if isinstance(central_layout, QtWidgets.QHBoxLayout):
-            central_layout.setContentsMargins(6, 6, 6, 6)
-            central_layout.setSpacing(6)
             central_layout.setStretch(0, 5)
             central_layout.setStretch(1, 2)
 
-        plot_layout = self.plotPanel.layout()
-        if isinstance(plot_layout, QtWidgets.QLayout):
-            plot_layout.setContentsMargins(6, 6, 6, 6)
-            plot_layout.setSpacing(4)
-
-        self.setMinimumSize(*MAIN_WINDOW_MIN_SIZE)
-        self.resize(*MAIN_WINDOW_START_SIZE)
+        # minimumSize and geometry are set in .ui
 
         # Port combo — starts empty, connect on selection
         self._port_combo = find_optional_child(self.txPanel, QtWidgets.QComboBox, 'portCombo')
@@ -241,35 +231,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if not buttons:
             return
 
+        # styleSheet, toolTip, checkable, and checked are set in .ui
         self._relay_channel_group = QtWidgets.QButtonGroup(self)
         self._relay_channel_group.setExclusive(True)
 
-        base_style = (
-            'QPushButton {'
-            ' padding: 0px 4px;'
-            ' border: 1px solid #9AA4AF;'
-            ' border-radius: 3px;'
-            ' background: #F6F8FA;'
-            ' min-height: 20px;'
-            ' font-size: 8pt;'
-            '}'
-            'QPushButton:hover {'
-            ' background: #EEF3F8;'
-            '}'
-            'QPushButton:checked {'
-            ' background: #DDEBFF;'
-            ' border-color: #4B84D9;'
-            ' font-weight: 600;'
-            '}'
-        )
-
         for channel, button in buttons.items():
-            button.setStyleSheet(base_style)
-            button.setToolTip(f'Relay CH {channel}' if channel else 'Relay CH ALL')
             self._relay_channel_group.addButton(button, channel)
 
-        checked_button = buttons.get(self._relay_channel, next(iter(buttons.values())))
-        checked_button.setChecked(True)
         self._relay_channel_group.buttonClicked[int].connect(self._on_relay_channel_changed)
 
     def _build_calibration_group(self) -> Optional[QtWidgets.QGroupBox]:
@@ -297,12 +265,7 @@ class MainWindow(QtWidgets.QMainWindow):
         group_layout.setContentsMargins(6, 6, 6, 6)
         group_layout.setSpacing(3)
 
-        if isinstance(self.relayChannelBar, QtWidgets.QGroupBox):
-            self.relayChannelBar.setTitle('')
-            self.relayChannelBar.setFlat(True)
-            self.relayChannelBar.setStyleSheet('QGroupBox { border: 0; margin-top: 0px; padding-top: 0px; }')
-        self.relayChannelBar.setMinimumHeight(30)
-        self.relayChannelBar.setMaximumHeight(34)
+        # relayChannelBar title, flat, styleSheet, min/maxHeight are set in .ui
 
         right_layout.removeWidget(self.relayChannelBar)
         right_layout.removeWidget(self.debugTabWidget)
@@ -311,8 +274,9 @@ class MainWindow(QtWidgets.QMainWindow):
         debug_scroll.setObjectName('calibrationScrollArea')
         debug_scroll.setWidgetResizable(True)
         debug_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
-        debug_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        debug_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         debug_scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        # ui-override: 동적 생성 스크롤 영역 + debugTabWidget 재배치 — .ui 이관 대상
         debug_scroll.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.debugTabWidget.setMinimumSize(0, 0)
         self.debugTabWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)

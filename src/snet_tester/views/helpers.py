@@ -66,9 +66,7 @@ def clear_layout(layout: QtWidgets.QLayout):
 
 
 def configure_plain_text_edit(text_edit: QtWidgets.QPlainTextEdit, font: QtGui.QFont):
-    text_edit.setReadOnly(True)
-    text_edit.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
-    text_edit.setFont(font)
+    # readOnly and lineWrapMode are set in .ui
     text_edit.setPlainText(PLACEHOLDER)
 
 
@@ -83,7 +81,6 @@ def configure_value_label(
     font: QtGui.QFont,
     align: QtCore.Qt.AlignmentFlag = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter,
 ):
-    label.setFont(font)
     label.setAlignment(align)
     label.setText(PLACEHOLDER)
 

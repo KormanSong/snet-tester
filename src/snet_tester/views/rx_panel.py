@@ -70,9 +70,6 @@ class RxPanelView:
         self.fullOpenValueEdit = find_optional_child(self._root, QtWidgets.QLineEdit, 'fullOpenValueEdit')
         self.fullOpenApplyButton = find_optional_child(self._root, QtWidgets.QPushButton, 'fullOpenApplyButton')
 
-        if self.rxFrameMetaLabel is not None:
-            self.rxFrameMetaLabel.setFont(font)
-
         if self.valveNoCheckBox is not None:
             self.valveNoCheckBox.toggled.connect(self._on_valve_display_toggled)
 
@@ -88,14 +85,9 @@ class RxPanelView:
             validator = QtGui.QDoubleValidator(0.0, 9999.999, 3, self.fullOpenValueEdit)
             validator.setNotation(QtGui.QDoubleValidator.StandardNotation)
             self.fullOpenValueEdit.setValidator(validator)
-            self.fullOpenValueEdit.setFont(self._font)
-            self.fullOpenValueEdit.setAlignment(QtCore.Qt.AlignCenter)
-            self.fullOpenValueEdit.setPlaceholderText(PLACEHOLDER)
-            self.fullOpenValueEdit.setToolTip('0x1000 variable value')
+            # alignment, placeholderText, and toolTip are set in .ui
 
-        if self.fullOpenApplyButton is not None:
-            self.fullOpenApplyButton.setFont(self._font)
-            self.fullOpenApplyButton.setToolTip('Apply the current value to 0x1000')
+        # fullOpenApplyButton toolTip is set in .ui
 
     def _format_full_open_value(self, raw_value: int) -> str:
         text = f'{raw_value / FULL_OPEN_VALUE_SCALE:.3f}'.rstrip('0').rstrip('.')
@@ -133,19 +125,10 @@ class RxPanelView:
     def _configure_monitor_table(self):
         table = self.rxMonitorTable
         ensure_table_shape(table, 4, MAX_CHANNELS, 'rxMonitorTable')
-        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        table.setFocusPolicy(QtCore.Qt.NoFocus)
-        table.setWordWrap(False)
-
-        compact_font = QtGui.QFont(self._font)
-        compact_font.setPointSize(9)
-        table.setFont(compact_font)
-
+        # editTriggers, selectionMode, wordWrap, font (9pt), focusPolicy,
+        # and vertical section sizes are set in .ui
+        # ui-override: Designer 미지원 — QHeaderView.Stretch는 .ui XML에 표현 불가
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-        table.verticalHeader().setDefaultSectionSize(20)
-        table.verticalHeader().setMinimumSectionSize(20)
-        table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Fixed)
         palette = table.palette()
         self._table_enabled_brush = QtGui.QBrush(palette.color(QtGui.QPalette.Text))
         self._table_disabled_brush = QtGui.QBrush(palette.color(QtGui.QPalette.Disabled, QtGui.QPalette.Text))
@@ -163,13 +146,9 @@ class RxPanelView:
         table = self.rxFrameTable
         # Now 1 row x 6 columns (horizontal)
         ensure_table_shape(table, 1, len(FRAME_FIXED_FIELDS), 'rxFrameTable')
-        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        table.setFocusPolicy(QtCore.Qt.NoFocus)
-        table.setWordWrap(False)
-        table.setFont(self._font)
+        # editTriggers, selectionMode, focusPolicy, wordWrap are set in .ui
+        # ui-override: Designer 미지원 — QHeaderView.Stretch
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-        table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
         for col, field in enumerate(FRAME_FIXED_FIELDS):
             item = table.item(0, col)
