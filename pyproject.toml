@@ -13,27 +13,19 @@ dependencies = [
     "pyqtgraph==0.14.0",
     "numpy==2.4.2",
     "pyserial==3.5",
-    "pillow",
-    "matplotlib",
 ]
 
 [project.scripts]
 snet-tester = "snet_tester.main:main"
-snet-layout-preview = "snet_tester.layout_preview:main"
-snet-graph-mockup-preview = "snet_tester.graph_mockup_preview:main"
 snet-designer = "snet_tester._designer:main"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-
 [tool.setuptools.packages.find]
-where = ["src"]
+include = ["snet_tester*"]
 
 [tool.setuptools.package-data]
 snet_tester = ["resources/presets.json", "resources/ui/*.ui"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
 testpaths = ["tests"]
 
 [dependency-groups]

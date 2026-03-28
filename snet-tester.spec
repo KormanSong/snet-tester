@@ -2,12 +2,12 @@
 
 
 a = Analysis(
-    ['run.py'],
-    pathex=['src'],
+    ['snet_tester/__main__.py'],
+    pathex=[],
     binaries=[],
     datas=[
-        ('src/snet_tester/resources/ui/main_window.ui', 'snet_tester/resources/ui'),
-        ('src/snet_tester/resources/presets.json', 'snet_tester/resources'),
+        ('snet_tester/resources/ui/main_window.ui', 'snet_tester/resources/ui'),
+        ('snet_tester/resources/presets.json', 'snet_tester/resources'),
     ],
     hiddenimports=['snet_tester', 'snet_tester.main', 'snet_tester.config', 'snet_tester.comm', 'snet_tester.comm.worker', 'snet_tester.protocol', 'snet_tester.protocol.codec', 'snet_tester.protocol.constants', 'snet_tester.protocol.convert', 'snet_tester.protocol.parser', 'snet_tester.protocol.types', 'snet_tester.views', 'snet_tester.views.helpers', 'snet_tester.views.main_window', 'snet_tester.views.plot_view', 'snet_tester.views.response_tracker', 'snet_tester.views.rx_panel', 'snet_tester.views.tx_panel'],
     hookspath=[],

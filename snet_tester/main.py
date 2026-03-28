@@ -1,23 +1,13 @@
 """SNET Protocol Tester entry point."""
 
 import argparse
-import pathlib
 import sys
 
 from PyQt5 import QtWidgets
 
-if __package__ in {None, ""}:
-    project_root = pathlib.Path(__file__).resolve().parents[1]
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-
-    from snet_tester import configure_qt_environment
-    from snet_tester.config import SerialConfig
-    from snet_tester.views.main_window import MainWindow
-else:
-    from . import configure_qt_environment
-    from .config import SerialConfig
-    from .views.main_window import MainWindow
+from . import configure_qt_environment
+from .config import SerialConfig
+from .views.main_window import MainWindow
 
 
 def parse_args(argv=None):
