@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "usart-tool"
+name = "snet-tester"
 version = "0.1.0"
-description = "USART I/O Mode Tool"
+description = "SNET Protocol Tester for multi-channel flow controllers"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "PyQt5>=5.15",

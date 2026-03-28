@@ -39,7 +39,7 @@ else {
 }
 
 Write-Host "[3/6] Creating build venv"
-uv venv $BuildVenv --python 3.14
+uv venv $BuildVenv --python 3.13
 
 Write-Host "[4/6] Installing project + PyInstaller into build venv"
 uv pip install --python (Join-Path $BuildVenv 'Scripts\python.exe') -e $TempRoot pyinstaller
