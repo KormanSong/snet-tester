@@ -30,10 +30,8 @@ def main(argv=None):
     # altering widget metrics, shadows, or native appearance.
     app.styleHints().setColorScheme(Qt.ColorScheme.Light)
 
-    # Match v1 (PyQt5) default font — PySide6/Qt6 defaults to Malgun Gothic
-    # which renders smaller than Gulim at the same point size.
-    # This ensures all non-explicit-font widgets look identical to v1.
-    default_font = QtGui.QFont('Gulim', 9)
+    # Explicit default font — prevents OS/Qt version differences.
+    default_font = QtGui.QFont('맑은 고딕', 9)
     app.setFont(default_font)
 
     window = MainWindow(mock_mode=args.mock, port=args.port, baud=args.baud)
