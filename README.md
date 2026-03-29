@@ -4,6 +4,12 @@ A desktop GUI tool for testing SNET serial protocol communication with multi-cha
 
 Works without hardware — just run with `--mock`.
 
+## Screenshots
+
+| Real-time graph & PID/Calibration | Steady-state & TX/RX Frame |
+|---|---|
+| ![Real-time graph](docs/screenshot_realtime_graph.png) | ![Frame view](docs/screenshot_frame_view.png) |
+
 ## Features
 
 - Control 6 channels with real-time ratio setpoints
