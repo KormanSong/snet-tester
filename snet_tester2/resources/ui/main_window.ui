@@ -1964,7 +1964,7 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
            <property name="font">
             <font>
              <family>Consolas</family>
-             <pointsize>9</pointsize>
+             <pointsize>10</pointsize>
             </font>
            </property>
            <property name="focusPolicy">
@@ -1984,7 +1984,6 @@ QTableWidget::item {
 QHeaderView::section {
     background-color: #3B4652;
     color: #F0F2F4;
-    font-size: 9px;
     font-weight: 700;
     padding: 2px 1px;
     border: none;
