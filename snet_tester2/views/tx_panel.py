@@ -438,6 +438,7 @@ class TxPanelView:
         # Wire dirty-state tracking on KP inputs
         for inp in (self.leKpVal0, self.leKp10p, self.leKp30p, self.leKp100p, self.leKpVal4):
             if inp is not None:
+                # ui-override: PID dirty/clean/synced 상태 전환의 초기값
                 inp.setStyleSheet(_PID_CLEAN_STYLE)
                 self._pid_loaded_values[inp.objectName()] = inp.text()
                 inp.textChanged.connect(self._make_pid_field_handler(inp))
@@ -448,6 +449,7 @@ class TxPanelView:
             name = widget.objectName()
             loaded = self._pid_loaded_values.get(name)
             is_dirty = loaded is not None and widget.text() != loaded
+            # ui-override: PID dirty/clean 상태 전환
             widget.setStyleSheet(_PID_DIRTY_STYLE if is_dirty else _PID_CLEAN_STYLE)
             self._update_pid_save_button_state()
         return handler
@@ -470,6 +472,7 @@ class TxPanelView:
                 if widget is not None and widget.text() != loaded:
                     has_dirty = True
                     break
+            # ui-override: PID 버튼 dirty 상태 시각 피드백
             btn.setStyleSheet(_MICRO_BTN_DIRTY_STYLE if has_dirty else _MICRO_BTN_STYLE)
 
     def _mark_pid_synced(self, field_names: Sequence[str]):
@@ -478,6 +481,7 @@ class TxPanelView:
             widget = self._root.parent().findChild(QtWidgets.QLineEdit, name)
             if widget is not None:
                 self._pid_loaded_values[name] = widget.text()
+                # ui-override: PID synced 상태 시각 피드백
                 widget.setStyleSheet(_PID_SYNCED_STYLE)
         self._update_pid_save_button_state()
         QtCore.QTimer.singleShot(1500, lambda: self._revert_pid_to_clean(field_names))
@@ -486,6 +490,7 @@ class TxPanelView:
         for name in field_names:
             widget = self._root.parent().findChild(QtWidgets.QLineEdit, name)
             if widget is not None:
+                # ui-override: PID clean 상태 복원
                 widget.setStyleSheet(_PID_CLEAN_STYLE)
 
     def _configure_frame_table(self):
@@ -575,6 +580,7 @@ class TxPanelView:
             v = values[col] if col < len(values) else 0.0
             item = QtWidgets.QTableWidgetItem(_format_ratio(v))
             item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            # ui-dynamic: 프리셋 아이템 동적 생성 시 폰트
             item.setFont(preset_font)
             table.setItem(row, col, item)
         table.blockSignals(False)
@@ -688,6 +694,7 @@ class TxPanelView:
         self._update_channel_input_state()
         self.refresh_pending_previews()
         # Reset highlight -- not applied yet until SET is clicked
+        # ui-override: 채널 수 변경 시 콤보 스타일 리셋
         self.channelCountCombo.setStyleSheet('')
         self._clear_ratio_highlights()
 
@@ -698,6 +705,7 @@ class TxPanelView:
             inp.setEnabled(enabled)
             if not enabled:
                 inp.setToolTip('')
+                # ui-override: 비활성 채널 ratio 스타일 리셋
                 inp.setStyleSheet(_RATIO_BASE_STYLE)
 
     def _on_ratio_text_changed(self, *_args):
@@ -736,10 +744,12 @@ class TxPanelView:
         if self.setButton is not None:
             original_text = self.setButton.text()
             original_style = self.setButton.styleSheet()
+            # ui-override: 검증 에러 시각 피드백
             self.setButton.setStyleSheet('QPushButton { background-color: #FFCDD2; color: #C62828; }')
             self.setButton.setText(message[:20] if len(message) > 20 else message)
             QtCore.QTimer.singleShot(2000, lambda: (
                 self.setButton.setText(original_text),
+                # ui-override: 검증 에러 후 스타일 복원
                 self.setButton.setStyleSheet(original_style),
             ))
 
@@ -754,6 +764,7 @@ class TxPanelView:
             self.appliedLabel.setText(f'Applied: {format_channel_summary(io_payload)}')
         if highlight_inputs:
             self._highlight_ratio_inputs(io_payload.channel_count)
+            # ui-override: applied 채널 수 시각 피드백
             self.channelCountCombo.setStyleSheet(
                 'QComboBox { border: 1px solid #aaa; border-bottom: 3px solid #4CAF50; padding: 1px 2px; }'
             )
@@ -761,10 +772,12 @@ class TxPanelView:
 
     def _highlight_ratio_inputs(self, active_count: int):
         for i, inp in enumerate(self._ratio_inputs):
+            # ui-override: applied ratio 시각 피드백
             inp.setStyleSheet(_RATIO_APPLIED_STYLE if i < active_count else _RATIO_BASE_STYLE)
 
     def _clear_ratio_highlights(self):
         for inp in self._ratio_inputs:
+            # ui-override: ratio 기본 스타일 복원
             inp.setStyleSheet(_RATIO_BASE_STYLE)
 
     # --- Frame display ---

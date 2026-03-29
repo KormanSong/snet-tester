@@ -2,7 +2,7 @@
 
 > **등급**: P0 — 모든 Phase, 모든 작업에서 최우선 준수
 > **제정일**: 2026-03-28
-> **적용 범위**: `snet_tester/views/*.py`, `resources/ui/*.ui`
+> **적용 범위**: `snet_tester2/views/*.py`, `snet_tester2/resources/ui/*.ui`
 
 ---
 
@@ -77,7 +77,7 @@ btn.setStyleSheet(f"background-color: {channel_color};")
 ## 검증 절차
 
 1. `views/` 수정 후 `check_ui_consistency.py` 실행
-2. Designer(`uv run snet-designer`) vs Runtime(`uv run python -m snet_tester --mock`) 나란히 비교
+2. Designer(`uv run snet-designer2`) vs Runtime(`uv run python -m snet_tester2 --mock`) 나란히 비교
 3. 불일치 항목 발견 시 `.ui` 이관 또는 `# ui-override:` 주석 추가
 4. 새 면제 사항은 반드시 이 문서의 "알려진 위반/면제 사항" 테이블에 등록
 

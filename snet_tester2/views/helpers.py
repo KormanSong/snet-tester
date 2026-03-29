@@ -158,6 +158,7 @@ def set_badge(label: QtWidgets.QLabel, text: str, tone: str):
     }
     color = styles.get(tone, styles['neutral'])
     label.setText(text)
+    # ui-dynamic: 상태 배지 색상 동적 변경 (RUN/STOP/LIVE/STALE 등)
     label.setStyleSheet(
         'QLabel {'
         f' background-color: {color};'

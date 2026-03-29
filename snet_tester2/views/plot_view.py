@@ -347,6 +347,7 @@ class PlotView:
             plot.getAxis('left').setWidth(LEFT_AXIS_WIDTH_PX)
 
     def _configure_ratio_plot(self, plot):
+        # ui-override: pyqtgraph PlotItem 내부 마진
         plot.layout.setContentsMargins(0, 4, 0, 4)
         plot.showAxis('right')
         right_axis = plot.getAxis('right')
@@ -373,6 +374,7 @@ class PlotView:
             axis.setTickFont(self._font)
 
     def _configure_valve_plot(self, plot):
+        # ui-override: pyqtgraph PlotItem 내부 마진
         plot.layout.setContentsMargins(0, 4, 0, 4)
         plot.showAxis('right')
         right_axis = plot.getAxis('right')
@@ -434,6 +436,7 @@ class PlotView:
                 base_ss = base_ss[:second_pos] + full_border + base_ss[second_pos + len(placeholder):]
             # Replace first (unchecked)
             base_ss = base_ss[:first_pos] + dim_border + base_ss[first_pos + len(placeholder):]
+        # ui-dynamic: .ui base stylesheet에서 채널색 플레이스홀더 치환
         button.setStyleSheet(base_ss)
 
     def _apply_curve_visibility(self):
