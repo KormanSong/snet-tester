@@ -2376,7 +2376,7 @@ QPushButton:checked { background: #DDEBFF; border-color: #4B84D9; font-weight: 6
          </font>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>3</number>
         </property>
         <widget class="QWidget" name="pidDebugTab">
          <attribute name="title">
@@ -3483,13 +3483,6 @@ QPushButton:pressed { background: #CCD4DC; }</string>
          </attribute>
          <layout class="QVBoxLayout" name="txDebugLayout">
           <item>
-           <widget class="QLabel" name="txFrameMetaLabel">
-            <property name="text">
-             <string>Frame: waiting</string>
-            </property>
-           </widget>
-          </item>
-          <item>
            <widget class="QTableWidget" name="txFrameTable">
             <property name="maximumSize">
              <size>
@@ -3588,13 +3581,6 @@ QPushButton:pressed { background: #CCD4DC; }</string>
           <string>RX Frame</string>
          </attribute>
          <layout class="QVBoxLayout" name="rxDebugLayout">
-          <item>
-           <widget class="QLabel" name="rxFrameMetaLabel">
-            <property name="text">
-             <string>Frame: waiting</string>
-            </property>
-           </widget>
-          </item>
           <item>
            <widget class="QTableWidget" name="rxFrameTable">
             <property name="maximumSize">
