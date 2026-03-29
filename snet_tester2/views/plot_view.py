@@ -18,7 +18,7 @@ from ..protocol.constants import MAX_CHANNELS, PLACEHOLDER, SAMPLE_PERIOD_S
 from ..protocol.types import IoPayload, SnetMonitorSnapshot
 from .helpers import find_optional_child, set_badge
 
-GRAPH_REFRESH_S = 0.05
+GRAPH_REFRESH_S = 0.02
 GRAPH_X_WINDOW_S = 10.0
 GRAPH_PANEL_VALVE_HEIGHT = 120
 PLOT_STALE_THRESHOLD_S = max(0.25, SAMPLE_PERIOD_S * 5.0)
@@ -213,6 +213,7 @@ class PlotView:
         self._write_index = 0
         self._has_started = False
         self._last_refresh = 0.0
+        self._last_add_point_time = 0.0
         self._active_tx_count = 1
         self._active_rx_count = 0
         self._running = False
@@ -289,7 +290,7 @@ class PlotView:
         pg.setConfigOptions(antialias=False, background=self._theme.qcolor(self._theme.background))
 
         for ch in range(MAX_CHANNELS):
-            rx_curve = self._ratio_plot.plot(self._x, self._y_rx[ch], pen=self._theme.rx_live_pen(ch), connect='finite')
+            rx_curve = self._ratio_plot.plot(self._x, self._y_rx[ch], pen=self._theme.rx_live_pen(ch), connect='finite', stepMode='left')
             self._curve_rx.append(rx_curve)
         # TX (setpoint) drawn after RX so step-lines render on top
         for ch in range(MAX_CHANNELS):
@@ -309,7 +310,7 @@ class PlotView:
         self._valve_plot.setXLink(self._ratio_plot)
         self._synchronize_axis_geometry()
         for ch in range(MAX_CHANNELS):
-            valve_curve = self._valve_plot.plot(self._x, self._y_valve[ch], pen=self._theme.valve_pen(ch), connect='finite')
+            valve_curve = self._valve_plot.plot(self._x, self._y_valve[ch], pen=self._theme.valve_pen(ch), connect='finite', stepMode='left')
             self._curve_valve.append(valve_curve)
 
         # Frames and labels are defined in .ui; just add plot widgets into them
@@ -551,6 +552,7 @@ class PlotView:
 
         self._write_index = (self._write_index + 1) % self._point_count
         self._has_started = True
+        self._last_add_point_time = time.perf_counter()
         self._update_summary_from_payload(tx_payload, rx_monitor, self._rx_stale)
 
     def _update_status_age(self, now: float):
@@ -563,6 +565,34 @@ class PlotView:
             self._set_rx_state('STALE', 'warn')
             self._update_summary_from_payload(self._applied_payload, self._last_rx_monitor, rx_stale=True)
 
+    def _build_display_data(self, y_buf: np.ndarray, ch: int):
+        """Return (x_display, y_display) extending last value to current time.
+
+        Returns view/slice of original arrays when no extension is needed,
+        or a new small array (n+1 elements) when a leading edge is appended.
+        """
+        n = self._write_index          # valid points: indices 0 .. n-1
+        has_data = self._has_started and n > 0
+
+        if not has_data:
+            return self._x, y_buf[ch]
+
+        last_val = y_buf[ch, n - 1]
+        if np.isnan(last_val):
+            return self._x[:n], y_buf[ch, :n]
+
+        elapsed = time.perf_counter() - self._last_add_point_time
+        frac = min(max(elapsed / SAMPLE_PERIOD_S, 0.0), 1.0)
+        leading_x = self._x[n - 1] + frac * SAMPLE_PERIOD_S
+
+        x_disp = np.empty(n + 1, dtype=np.float32)
+        y_disp = np.empty(n + 1, dtype=np.float32)
+        x_disp[:n] = self._x[:n]
+        x_disp[n] = leading_x
+        y_disp[:n] = y_buf[ch, :n]
+        y_disp[n] = last_val
+        return x_disp, y_disp
+
     def refresh(self, force: bool = False):
         now = time.perf_counter()
         self._update_status_age(now)
@@ -571,9 +601,12 @@ class PlotView:
 
         for ch in range(MAX_CHANNELS):
             if self._curve_tx[ch].isVisible():
-                self._curve_tx[ch].setData(self._x, self._y_tx[ch], connect='finite', stepMode='left')
+                x_d, y_d = self._build_display_data(self._y_tx, ch)
+                self._curve_tx[ch].setData(x_d, y_d, connect='finite', stepMode='left')
             if self._curve_rx[ch].isVisible():
-                self._curve_rx[ch].setData(self._x, self._y_rx[ch], connect='finite')
+                x_d, y_d = self._build_display_data(self._y_rx, ch)
+                self._curve_rx[ch].setData(x_d, y_d, connect='finite', stepMode='left')
             if self._curve_valve[ch].isVisible():
-                self._curve_valve[ch].setData(self._x, self._y_valve[ch], connect='finite')
+                x_d, y_d = self._build_display_data(self._y_valve, ch)
+                self._curve_valve[ch].setData(x_d, y_d, connect='finite', stepMode='left')
         self._last_refresh = now
