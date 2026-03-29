@@ -66,7 +66,7 @@ class _ModeToggleSwitch(QtWidgets.QCheckBox):
         self.stateChanged.connect(self._animate_thumb)
 
     def sizeHint(self) -> QtCore.QSize:
-        return QtCore.QSize(128, 34)
+        return QtCore.QSize(148, 34)
 
     def minimumSizeHint(self) -> QtCore.QSize:
         return self.sizeHint()
@@ -133,8 +133,11 @@ class _ModeToggleSwitch(QtWidgets.QCheckBox):
         label_font.setPointSize(max(8, label_font.pointSize()))
         painter.setFont(label_font)
 
-        left_rect = QtCore.QRectF(rect.left() + 34.0, rect.top(), (rect.width() / 2.0) - 36.0, rect.height())
-        right_rect = QtCore.QRectF(rect.center().x() + 4.0, rect.top(), (rect.width() / 2.0) - 36.0, rect.height())
+        half_w = rect.width() / 2.0
+        knob_w = knob_diameter + 8.0
+        text_pad = 6.0
+        left_rect = QtCore.QRectF(rect.left() + knob_w, rect.top(), half_w - knob_w - text_pad, rect.height())
+        right_rect = QtCore.QRectF(rect.center().x() + text_pad, rect.top(), half_w - knob_w - text_pad, rect.height())
 
         left_color = QtGui.QColor(250, 252, 255) if self.isChecked() else QtGui.QColor(156, 167, 179)
         right_color = QtGui.QColor(250, 252, 255) if not self.isChecked() else QtGui.QColor(156, 167, 179)
