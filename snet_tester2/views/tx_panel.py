@@ -635,6 +635,10 @@ class TxPanelView:
                 item = table.item(row, col)
                 if item is not None:
                     item.setBackground(bg)
+            # APPLY 버튼 열(col 6)은 항상 흰색 — 녹색 번짐 방지
+            apply_item = table.item(row, APPLY_COL)
+            if apply_item is not None:
+                apply_item.setBackground(default_bg)
         table.clearSelection()
         table.blockSignals(False)
         self._last_applied_row = active_row
