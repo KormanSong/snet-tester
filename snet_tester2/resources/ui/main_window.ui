@@ -1505,14 +1505,14 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
             <widget class="QLineEdit" name="fullOpenValueEdit">
              <property name="minimumSize">
               <size>
-               <width>54</width>
-               <height>0</height>
+               <width>70</width>
+               <height>22</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>70</width>
-               <height>16777215</height>
+               <width>90</width>
+               <height>24</height>
               </size>
              </property>
              <property name="toolTip">
@@ -1529,21 +1529,26 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
            <item>
             <widget class="QPushButton" name="fullOpenApplyButton">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
-             <property name="maximumSize">
+             <property name="minimumSize">
               <size>
                <width>40</width>
-               <height>20</height>
+               <height>22</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>56</width>
+               <height>24</height>
               </size>
              </property>
              <property name="font">
               <font>
-               <family>Adobe Arabic</family>
-               <pointsize>7</pointsize>
+               <pointsize>8</pointsize>
               </font>
              </property>
              <property name="toolTip">
