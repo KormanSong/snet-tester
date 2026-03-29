@@ -21,6 +21,7 @@ from collections import deque
 import queue
 import threading
 import time
+import traceback
 from typing import Optional
 
 from ..transport.base import Transport
@@ -314,7 +315,6 @@ class SerialWorker(threading.Thread):
         except OSError as exc:
             self._queue.put(ErrorEvent(message=f'[Serial Error] {exc}'))
         except Exception as exc:
-            import traceback
             traceback.print_exc()
             self._queue.put(ErrorEvent(message=f'[Worker Error] {exc}'))
         finally:

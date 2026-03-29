@@ -14,7 +14,6 @@ from .constants import (
     FRAME_IDX_STX_L,
     FRAME_ID_DEFAULT,
     FRAME_CH_DEFAULT,
-    FRAME_FIXED_FIELDS,
     HEADER,
     HEX_DUMP_BYTES_PER_LINE,
     BROOKS_DEFAULT_SLAVE_ID,
@@ -31,7 +30,6 @@ from .constants import (
     IO_OVERRIDE_DEFAULT,
     MAX_CHANNELS,
     PLACEHOLDER,
-    RATIO_FULL_SCALE_RAW,
     SNET_MONITOR_HEADER_LEN,
 )
 from .enums import SnetCommand
@@ -389,7 +387,6 @@ def first_monitor_ratio_percent(snet_monitor: Optional[SnetMonitorSnapshot]) -> 
 
 
 def format_sample_log(event, run_forever: bool = True, test_count: int = 100) -> str:
-    from .types import SampleEvent
     status = 'OK' if event.success else 'FAIL'
     if event.response_raw is None:
         rsp_text = 'TIMEOUT'

@@ -16,7 +16,7 @@ from ..protocol.codec import monitor_channel_ratio_percents
 from ..protocol.convert import valve_raw_to_display
 from ..protocol.constants import MAX_CHANNELS, PLACEHOLDER, SAMPLE_PERIOD_S
 from ..protocol.types import IoPayload, SnetMonitorSnapshot
-from .helpers import clear_layout, configure_value_label, find_optional_child, set_badge
+from .helpers import find_optional_child, set_badge
 
 GRAPH_REFRESH_S = 0.05
 GRAPH_X_WINDOW_S = 10.0

@@ -31,7 +31,6 @@ from .helpers import (
     ensure_table_shape,
     find_optional_child,
     require_child,
-    set_badge,
 )
 
 # Widgets expected inside rxPanel (QGroupBox)

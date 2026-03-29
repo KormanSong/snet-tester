@@ -7,7 +7,6 @@ imports converted to relative within snet_tester2.
 
 import queue
 import threading
-import time
 from typing import Optional
 
 import numpy as np
@@ -24,12 +23,9 @@ from ..protocol.codec import (
     first_monitor_ratio_percent,
     format_sample_log,
 )
-from ..protocol.constants import (
-    MAX_CHANNELS,
-    SAMPLE_PERIOD_S,
-)
+from ..protocol.constants import MAX_CHANNELS
 from ..protocol.enums import VarIndex
-from ..protocol.types import IoPayload, SampleEvent, SnetMonitorSnapshot
+from ..protocol.types import SnetMonitorSnapshot
 
 from ..comm.worker import SerialWorker as V2SerialWorker
 from ..comm.commands import (
@@ -259,7 +255,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if relay_index < 0 or debug_index < 0:
             return None
 
-        # ui-dynamic: calibrationGroup .ui 미정의, 런타임 동적 조립 — EXEMPT (.ui 이관 대상)
+        # ui-dynamic: calibrationGroup .ui 미정의, 런타임 동적 조립 -- EXEMPT (.ui 이관 대상)
         calibration_group = QtWidgets.QGroupBox('Calibration', self.centralWidget())
         calibration_group.setObjectName('calibrationGroup')
         # ui-dynamic: calibrationGroup 동적 위젯
@@ -496,9 +492,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self._command_queue.put(SetRunningCommand(running=False))
             self._stop_event.set()
             self._worker.join(timeout=2.0)
-            self._on_ui_timer()
+            if self._worker.is_alive():
+                print('[MainWindow] Warning: previous worker did not stop within timeout')
+            self._on_ui_timer()  # drain events posted before/during join
             self._worker = None
-        # Drain stale commands (reuse queues, don't recreate)
+        # Drain stale events from previous worker (may have posted after join)
+        while not self._event_queue.empty():
+            try:
+                self._event_queue.get_nowait()
+            except queue.Empty:
+                break
+        # Drain stale commands
         while not self._command_queue.empty():
             try:
                 self._command_queue.get_nowait()

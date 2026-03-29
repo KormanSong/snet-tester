@@ -4,9 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-SNET Tester — a PyQt5 GUI application for testing SNET serial protocol communication with multi-channel flow controllers. Supports real-time graphing, preset management, Brooks KP calibration, and PID tuning.
+SNET Tester — a GUI application for testing SNET serial protocol communication with multi-channel flow controllers. Supports real-time graphing, preset management, Brooks KP calibration, and PID tuning.
+
+Two packages coexist during migration:
+- `snet_tester/` (v1, PyQt5) — legacy, uses v2 core via hybrid integration
+- `snet_tester2/` (v2, PySide6) — primary, standalone application
 
 ## Commands
+
+### v2 (PySide6 — primary)
+```bash
+# Run (mock mode, no hardware needed)
+python -m snet_tester2 --mock
+
+# Run (real hardware)
+python -m snet_tester2 --port COM6 --baud 115200
+
+# Run tests
+pytest
+
+# Launch Qt Designer on the v2 .ui file
+snet-designer2
+
+# UI consistency check
+python tools/check_ui_consistency.py --strict
+```
+
+### v1 (PyQt5 — legacy)
 
 ```bash
 # Run (mock mode, no hardware needed)
@@ -52,7 +76,7 @@ Package manager is **uv**. Python version is 3.13.
 4. Parser decodes response into `SnetMonitorSnapshot`
 5. `sample` event emitted → MainWindow routes to RxPanelView (table) and PlotView (graph)
 
-**Mock mode** (`--mock`): MainWindow generates synthetic samples on a timer, bypassing SerialWorker entirely. Useful for UI development.
+**Mock mode** (`--mock`): MainWindow creates a `MockTransport` (instead of `SerialTransport`) and passes it to the real `SerialWorker`. The worker runs the same TX/RX loop — MockTransport generates synthetic responses internally. No timer bypass, no separate mock code path. Useful for UI development.
 
 ## UI Development Rules — ABSOLUTE DIRECTIVE
 

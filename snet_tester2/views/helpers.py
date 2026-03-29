@@ -7,7 +7,7 @@ that sets widget attributes on the base instance (spike-verified pattern).
 import pathlib
 import sys
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtGui, QtWidgets
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, QMetaObject
 
@@ -106,45 +106,16 @@ def load_ui(widget, filename: str):
     QMetaObject.connectSlotsByName(widget)
 
 
-def attach_widget(host: QtWidgets.QWidget, child: QtWidgets.QWidget):
-    layout = host.layout()
-    if layout is None:
-        # ui-override: Python 전용 위젯 삽입 시 레이아웃 초기화
-        layout = QtWidgets.QVBoxLayout(host)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-    clear_layout(layout)
-    layout.addWidget(child)
-
-
-def clear_layout(layout: QtWidgets.QLayout):
-    while layout.count():
-        item = layout.takeAt(0)
-        if item.widget() is not None:
-            item.widget().setParent(None)
-        elif item.layout() is not None:
-            clear_layout(item.layout())
-
-
 def configure_plain_text_edit(text_edit: QtWidgets.QPlainTextEdit, font: QtGui.QFont):
     # readOnly and lineWrapMode are set in .ui
     text_edit.setPlainText(PLACEHOLDER)
 
 
-# ui-override: 시스템 고정폭 폰트는 런타임에 결정 — 플랫폼별 차이 발생 가능
+# ui-override: 시스템 고정폭 폰트는 런타임에 결정 -- 플랫폼별 차이 발생 가능
 def build_fixed_font() -> QtGui.QFont:
     font = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
     font.setPointSize(10)
     return font
-
-
-def configure_value_label(
-    label: QtWidgets.QLabel,
-    font: QtGui.QFont,
-    align: QtCore.Qt.AlignmentFlag = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter,
-):
-    label.setAlignment(align)
-    label.setText(PLACEHOLDER)
 
 
 def set_badge(label: QtWidgets.QLabel, text: str, tone: str):

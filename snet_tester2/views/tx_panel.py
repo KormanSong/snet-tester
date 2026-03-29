@@ -555,7 +555,7 @@ class TxPanelView:
 
         # Font, stylesheet, editTriggers, scrollMode, header visibility,
         # row height, and stretchLastSection are set in .ui.
-        # ui-override: Designer 미지원 — per-column QHeaderView.ResizeMode
+        # ui-override: Designer 미지원 -- per-column QHeaderView.ResizeMode
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         table.horizontalHeader().setSectionResizeMode(APPLY_COL, QtWidgets.QHeaderView.Fixed)
         table.setColumnWidth(APPLY_COL, 30)
@@ -741,17 +741,30 @@ class TxPanelView:
 
     def show_validation_error(self, message: str):
         """Flash validation error on the SET button for 2 seconds."""
-        if self.setButton is not None:
-            original_text = self.setButton.text()
-            original_style = self.setButton.styleSheet()
-            # ui-override: 검증 에러 시각 피드백
-            self.setButton.setStyleSheet('QPushButton { background-color: #FFCDD2; color: #C62828; }')
-            self.setButton.setText(message[:20] if len(message) > 20 else message)
-            QtCore.QTimer.singleShot(2000, lambda: (
-                self.setButton.setText(original_text),
+        if self.setButton is None:
+            return
+        # Cancel any previous error flash timer (re-entrancy guard)
+        if hasattr(self, '_validation_timer') and self._validation_timer is not None:
+            self._validation_timer.stop()
+        original_text = self.setButton.text()
+        original_style = self.setButton.styleSheet()
+        # ui-override: 검증 에러 시각 피드백
+        self.setButton.setStyleSheet('QPushButton { background-color: #FFCDD2; color: #C62828; }')
+        self.setButton.setText(message[:20] if len(message) > 20 else message)
+
+        def _restore():
+            try:
                 # ui-override: 검증 에러 후 스타일 복원
-                self.setButton.setStyleSheet(original_style),
-            ))
+                self.setButton.setText(original_text)
+                self.setButton.setStyleSheet(original_style)
+            except RuntimeError:
+                pass  # widget already deleted (window closed)
+
+        self._validation_timer = QtCore.QTimer()
+        self._validation_timer.setSingleShot(True)
+        self._validation_timer.setInterval(2000)
+        self._validation_timer.timeout.connect(_restore)
+        self._validation_timer.start()
 
     def update_run_state(self, running: bool):
         self._running = running
