@@ -297,7 +297,7 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
 QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
             </property>
             <property name="text">
-             <string>&#x2600;</string>
+             <string>☀</string>
             </property>
             <property name="checkable">
              <bool>true</bool>
@@ -349,11 +349,21 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
              <enum>QFrame::NoFrame</enum>
             </property>
             <layout class="QVBoxLayout" name="ratioPlotLayout">
-             <property name="spacing"><number>0</number></property>
-             <property name="leftMargin"><number>4</number></property>
-             <property name="topMargin"><number>2</number></property>
-             <property name="rightMargin"><number>4</number></property>
-             <property name="bottomMargin"><number>4</number></property>
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <property name="leftMargin">
+              <number>4</number>
+             </property>
+             <property name="topMargin">
+              <number>2</number>
+             </property>
+             <property name="rightMargin">
+              <number>4</number>
+             </property>
+             <property name="bottomMargin">
+              <number>4</number>
+             </property>
              <item>
               <widget class="QLabel" name="ratioPlotLabel">
                <property name="styleSheet">
@@ -376,11 +386,21 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
              <enum>QFrame::NoFrame</enum>
             </property>
             <layout class="QVBoxLayout" name="valvePlotLayout">
-             <property name="spacing"><number>0</number></property>
-             <property name="leftMargin"><number>4</number></property>
-             <property name="topMargin"><number>2</number></property>
-             <property name="rightMargin"><number>4</number></property>
-             <property name="bottomMargin"><number>4</number></property>
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <property name="leftMargin">
+              <number>4</number>
+             </property>
+             <property name="topMargin">
+              <number>2</number>
+             </property>
+             <property name="rightMargin">
+              <number>4</number>
+             </property>
+             <property name="bottomMargin">
+              <number>4</number>
+             </property>
              <item>
               <widget class="QLabel" name="valvePlotLabel">
                <property name="styleSheet">
@@ -444,25 +464,16 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
             </item>
             <item row="0" column="1">
              <widget class="QPushButton" name="legendTx1Button">
-              <property name="text">
-               <string>SET1</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -488,30 +499,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>SET1</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="0" column="2">
              <widget class="QPushButton" name="legendTx2Button">
-              <property name="text">
-               <string>SET2</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -537,30 +548,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>SET2</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="0" column="3">
              <widget class="QPushButton" name="legendTx3Button">
-              <property name="text">
-               <string>SET3</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -586,30 +597,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>SET3</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="0" column="4">
              <widget class="QPushButton" name="legendTx4Button">
-              <property name="text">
-               <string>SET4</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -635,30 +646,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>SET4</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="0" column="5">
              <widget class="QPushButton" name="legendTx5Button">
-              <property name="text">
-               <string>SET5</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -684,30 +695,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>SET5</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="0" column="6">
              <widget class="QPushButton" name="legendTx6Button">
-              <property name="text">
-               <string>SET6</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -733,30 +744,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>SET6</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="1" column="1">
              <widget class="QPushButton" name="legendRx1Button">
-              <property name="text">
-               <string>RATIO1</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -782,30 +793,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>RATIO1</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="1" column="2">
              <widget class="QPushButton" name="legendRx2Button">
-              <property name="text">
-               <string>RATIO2</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -831,30 +842,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>RATIO2</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="1" column="3">
              <widget class="QPushButton" name="legendRx3Button">
-              <property name="text">
-               <string>RATIO3</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -880,30 +891,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>RATIO3</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="1" column="4">
              <widget class="QPushButton" name="legendRx4Button">
-              <property name="text">
-               <string>RATIO4</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -929,30 +940,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>RATIO4</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="1" column="5">
              <widget class="QPushButton" name="legendRx5Button">
-              <property name="text">
-               <string>RATIO5</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -978,30 +989,30 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>RATIO5</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
             <item row="1" column="6">
              <widget class="QPushButton" name="legendRx6Button">
-              <property name="text">
-               <string>RATIO6</string>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>0</width>
                 <height>24</height>
                </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton {
@@ -1027,6 +1038,15 @@ QPushButton:pressed {
  background-color: rgb(224, 235, 247);
  color: rgb(15, 23, 42);
 }</string>
+              </property>
+              <property name="text">
+               <string>RATIO6</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
@@ -1040,6 +1060,21 @@ QPushButton:pressed {
     </item>
     <item>
      <layout class="QVBoxLayout" name="rightLayout">
+      <property name="spacing">
+       <number>4</number>
+      </property>
+      <property name="leftMargin">
+       <number>4</number>
+      </property>
+      <property name="topMargin">
+       <number>4</number>
+      </property>
+      <property name="rightMargin">
+       <number>4</number>
+      </property>
+      <property name="bottomMargin">
+       <number>4</number>
+      </property>
       <item>
        <widget class="QGroupBox" name="txPanel">
         <property name="sizePolicy">
@@ -1064,8 +1099,38 @@ QPushButton:pressed {
          <string>SET</string>
         </property>
         <layout class="QVBoxLayout" name="txVerticalLayout">
+         <property name="spacing">
+          <number>3</number>
+         </property>
+         <property name="leftMargin">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>8</number>
+         </property>
+         <property name="rightMargin">
+          <number>4</number>
+         </property>
+         <property name="bottomMargin">
+          <number>4</number>
+         </property>
          <item>
           <layout class="QHBoxLayout" name="controlLayout">
+           <property name="spacing">
+            <number>4</number>
+           </property>
+           <property name="leftMargin">
+            <number>2</number>
+           </property>
+           <property name="topMargin">
+            <number>2</number>
+           </property>
+           <property name="rightMargin">
+            <number>2</number>
+           </property>
+           <property name="bottomMargin">
+            <number>2</number>
+           </property>
            <item>
             <widget class="QComboBox" name="portCombo">
              <property name="sizePolicy">
@@ -1076,8 +1141,14 @@ QPushButton:pressed {
              </property>
              <property name="minimumSize">
               <size>
-               <width>50</width>
+               <width>80</width>
                <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>80</width>
+               <height>16777215</height>
               </size>
              </property>
             </widget>
@@ -1102,11 +1173,18 @@ QPushButton:pressed {
                <height>26</height>
               </size>
              </property>
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+               <kerning>false</kerning>
+              </font>
+             </property>
              <property name="toolTip">
               <string>COM port list refresh</string>
              </property>
              <property name="text">
-              <string>🔄</string>
+              <string>⟳</string>
              </property>
             </widget>
            </item>
@@ -1119,6 +1197,24 @@ QPushButton:pressed {
            </item>
            <item>
             <widget class="QComboBox" name="channelCountCombo">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>44</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>44</width>
+               <height>16777215</height>
+              </size>
+             </property>
              <item>
               <property name="text">
                <string>1</string>
@@ -1153,6 +1249,24 @@ QPushButton:pressed {
            </item>
            <item>
             <widget class="QPushButton" name="runButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>36</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>36</width>
+               <height>16777215</height>
+              </size>
+             </property>
              <property name="text">
               <string>GO</string>
              </property>
@@ -1160,6 +1274,24 @@ QPushButton:pressed {
            </item>
            <item>
             <widget class="QPushButton" name="stopButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>42</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>42</width>
+               <height>16777215</height>
+              </size>
+             </property>
              <property name="text">
               <string>STOP</string>
              </property>
@@ -1205,10 +1337,58 @@ QPushButton:pressed {
             <string>Ratio</string>
            </property>
            <layout class="QVBoxLayout" name="presetGroupLayout">
+            <property name="spacing">
+             <number>2</number>
+            </property>
+            <property name="leftMargin">
+             <number>4</number>
+            </property>
+            <property name="topMargin">
+             <number>8</number>
+            </property>
+            <property name="rightMargin">
+             <number>4</number>
+            </property>
+            <property name="bottomMargin">
+             <number>4</number>
+            </property>
             <item>
              <layout class="QHBoxLayout" name="txRatioLayout">
+              <property name="spacing">
+               <number>3</number>
+              </property>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
               <item>
                <widget class="QLineEdit" name="ratioInput1">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>1</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>40</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>70</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="styleSheet">
                  <string notr="true">QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }
 QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }
@@ -1227,6 +1407,24 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
               </item>
               <item>
                <widget class="QLineEdit" name="ratioInput2">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>1</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>40</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>70</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="styleSheet">
                  <string notr="true">QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }
 QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }
@@ -1245,6 +1443,24 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
               </item>
               <item>
                <widget class="QLineEdit" name="ratioInput3">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>1</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>40</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>70</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="styleSheet">
                  <string notr="true">QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }
 QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }
@@ -1263,6 +1479,24 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
               </item>
               <item>
                <widget class="QLineEdit" name="ratioInput4">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>1</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>40</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>70</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="styleSheet">
                  <string notr="true">QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }
 QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }
@@ -1281,6 +1515,24 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
               </item>
               <item>
                <widget class="QLineEdit" name="ratioInput5">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>1</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>40</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>70</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="styleSheet">
                  <string notr="true">QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }
 QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }
@@ -1299,6 +1551,24 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
               </item>
               <item>
                <widget class="QLineEdit" name="ratioInput6">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>1</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>40</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>70</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="styleSheet">
                  <string notr="true">QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }
 QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }
@@ -1317,6 +1587,24 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
               </item>
               <item>
                <widget class="QPushButton" name="setButton">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>36</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>36</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>SET</string>
                 </property>
@@ -1326,6 +1614,12 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
             </item>
             <item>
              <widget class="QTableWidget" name="presetTable">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>50</height>
+               </size>
+              </property>
               <property name="maximumSize">
                <size>
                 <width>16777215</width>
@@ -1416,6 +1710,21 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
             </item>
             <item>
              <layout class="QHBoxLayout" name="presetButtonLayout">
+              <property name="spacing">
+               <number>3</number>
+              </property>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
               <item>
                <widget class="QPushButton" name="addPresetButton">
                 <property name="text">
@@ -1475,8 +1784,38 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
          <string>SNET</string>
         </property>
         <layout class="QVBoxLayout" name="rxVerticalLayout">
+         <property name="spacing">
+          <number>3</number>
+         </property>
+         <property name="leftMargin">
+          <number>4</number>
+         </property>
+         <property name="topMargin">
+          <number>8</number>
+         </property>
+         <property name="rightMargin">
+          <number>4</number>
+         </property>
+         <property name="bottomMargin">
+          <number>4</number>
+         </property>
          <item>
           <layout class="QHBoxLayout" name="rxOptionLayout">
+           <property name="spacing">
+            <number>4</number>
+           </property>
+           <property name="leftMargin">
+            <number>2</number>
+           </property>
+           <property name="topMargin">
+            <number>2</number>
+           </property>
+           <property name="rightMargin">
+            <number>2</number>
+           </property>
+           <property name="bottomMargin">
+            <number>2</number>
+           </property>
            <item>
             <widget class="QCheckBox" name="adCommandCheckBox">
              <property name="text">
@@ -1610,6 +1949,12 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
          </item>
          <item>
           <widget class="QTableWidget" name="rxMonitorTable">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>90</height>
+            </size>
+           </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>

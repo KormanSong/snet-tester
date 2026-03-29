@@ -145,13 +145,21 @@ class MainWindow(QtWidgets.QMainWindow):
             self.calibrationGroup.setMinimumWidth(SIDE_PANEL_WIDTH)
             self.calibrationGroup.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
-        # ui-override: Designer 미지원 -- QHBoxLayout stretch는 .ui XML에 표현 불가
+        # minimumSize and geometry are set in .ui
+
+        # ui-override: PySide6 QUiLoader는 <item stretch="N"> 미지원 -- Python 설정 필수
         central_layout = self.centralWidget().layout()
         if isinstance(central_layout, QtWidgets.QHBoxLayout):
-            central_layout.setStretch(0, 5)
-            central_layout.setStretch(1, 2)
+            central_layout.setStretch(0, 5)   # plotPanel
+            central_layout.setStretch(1, 2)   # rightLayout
 
-        # minimumSize and geometry are set in .ui
+        # ui-override: PySide6 QUiLoader <item stretch> 미지원 -- rightLayout stretch
+        right_layout = self.findChild(QtWidgets.QVBoxLayout, 'rightLayout')
+        if right_layout is not None:
+            right_layout.setStretch(0, 0)   # txPanel
+            right_layout.setStretch(1, 0)   # rxPanel
+            right_layout.setStretch(2, 0)   # relayChannelBar
+            right_layout.setStretch(3, 1)   # debugTabWidget
 
         # Port combo -- starts empty, connect on selection
         self._port_combo = find_optional_child(self.txPanel, QtWidgets.QComboBox, 'portCombo')
@@ -294,6 +302,8 @@ class MainWindow(QtWidgets.QMainWindow):
         debug_scroll.setWidget(self.debugTabWidget)
         group_layout.addWidget(debug_scroll, 1)
         right_layout.insertWidget(min(relay_index, debug_index), calibration_group)
+        # ui-override: calibrationGroup 동적 삽입 후 stretch 재설정 (EXEMPT)
+        right_layout.setStretch(right_layout.indexOf(calibration_group), 1)
 
         return calibration_group
 
