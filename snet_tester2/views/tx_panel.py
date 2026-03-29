@@ -244,32 +244,26 @@ def _format_pid_value(value: float) -> str:
 
 # --- PID / Control variable compact button styles ---
 
+# ui-override: 저장/읽기 버튼 dirty/clean 상태 표시 (font/size/height는 .ui 관리)
 _MICRO_BTN_STYLE = (
-    'QPushButton {'
-    ' font-size: 9pt; font-weight: 600;'
-    ' padding: 1px 4px;'
-    ' min-height: 20px; max-height: 22px;'
-    ' border: 1px solid #888; border-radius: 0px;'
-    ' background: #E8E8E8; color: #000;'
-    '}'
+    'QPushButton { padding: 1px 4px; border: 1px solid #888;'
+    ' border-radius: 0px; background: #E8E8E8; color: #000; }'
     'QPushButton:hover { background: #D8DEE4; border-color: #555; }'
     'QPushButton:pressed { background: #CCD4DC; }'
 )
 
 _MICRO_BTN_DIRTY_STYLE = (
-    'QPushButton {'
-    ' font-size: 9pt; font-weight: 600;'
-    ' padding: 1px 4px;'
-    ' min-height: 20px; max-height: 22px;'
-    ' border: 1px solid #E9912E; border-radius: 0px;'
-    ' background: #FFF3E0; color: #000;'
-    '}'
+    'QPushButton { padding: 1px 4px; border: 1px solid #E9912E;'
+    ' border-radius: 0px; background: #FFF3E0; color: #000; }'
     'QPushButton:hover { background: #FFE0B2; border-color: #E65100; }'
     'QPushButton:pressed { background: #FFCC80; }'
 )
 
+# ui-override: PID 필드 dirty/clean/synced 상태 표시
+# 모든 상태에서 border-left: 3px 고정 → 상태 전환 시 UI 밀림 방지
 _PID_CLEAN_STYLE = (
-    'QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }'
+    'QLineEdit { color: #000; border: 1px solid #aaa;'
+    ' border-left: 3px solid #bbb; padding: 1px 2px 1px 0px; }'
 )
 _PID_DIRTY_STYLE = (
     'QLineEdit { color: #000; border: 1px solid #aaa;'

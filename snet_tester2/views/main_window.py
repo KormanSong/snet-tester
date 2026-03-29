@@ -159,6 +159,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self._populate_ports()
             self._port_combo.currentTextChanged.connect(self._on_port_selected)
 
+        # Port refresh button
+        self._port_refresh_btn = find_optional_child(self.txPanel, QtWidgets.QPushButton, 'portRefreshButton')
+        if self._port_refresh_btn is not None:
+            self._port_refresh_btn.clicked.connect(self._on_port_refresh_clicked)
+
         self.tx_panel = TxPanelView(root=self.txPanel, debug_root=self.debugTabWidget, font=fixed_font)
         self.rx_panel = RxPanelView(root=self.rxPanel, debug_root=self.debugTabWidget, font=fixed_font)
         self.rx_panel.set_full_open_value_raw(None)
@@ -471,6 +476,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self._command_queue.put(BrooksGetKpCommand(channel=self._relay_channel))
 
     # --- Port combo ---
+
+    def _on_port_refresh_clicked(self):
+        """Refresh COM port list without restarting the application."""
+        current = self._port_combo.currentText() if self._port_combo else ''
+        self._populate_ports()
+        if current and self._port_combo is not None:
+            idx = self._port_combo.findText(current)
+            if idx >= 0:
+                self._port_combo.setCurrentIndex(idx)
+        self.statusBar().showMessage('COM port list refreshed')
 
     def _populate_ports(self):
         if self._port_combo is None:
