@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from PySide6 import QtWidgets
+from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import Qt
 
 from . import configure_qt_environment
@@ -29,6 +29,12 @@ def main(argv=None):
     # This prevents dark mode from corrupting .ui-designed colors without
     # altering widget metrics, shadows, or native appearance.
     app.styleHints().setColorScheme(Qt.ColorScheme.Light)
+
+    # Match v1 (PyQt5) default font — PySide6/Qt6 defaults to Malgun Gothic
+    # which renders smaller than Gulim at the same point size.
+    # This ensures all non-explicit-font widgets look identical to v1.
+    default_font = QtGui.QFont('Gulim', 9)
+    app.setFont(default_font)
 
     window = MainWindow(mock_mode=args.mock, port=args.port, baud=args.baud)
     window.show()
