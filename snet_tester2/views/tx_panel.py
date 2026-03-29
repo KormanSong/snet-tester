@@ -1,0 +1,775 @@
+"""TX panel view -- channel settings, run/stop/set, frame display, preset table.
+
+PySide6 port: PyQt5 -> PySide6 imports, @pyqtProperty -> @Property.
+"""
+
+import json
+import os
+import pathlib
+import sys
+from typing import Optional, Sequence
+
+from PySide6 import QtCore, QtGui, QtWidgets
+
+from ..protocol.codec import (
+    build_io_payload_model,
+    clamp_channel_count,
+    format_channel_summary,
+    format_data_hexdump,
+    frame_view_fixed_rows,
+)
+from ..protocol.constants import FRAME_FIXED_FIELDS, HEX_DUMP_BYTES_PER_LINE, MAX_CHANNELS, PLACEHOLDER
+from ..protocol.types import FrameView, IoPayload
+
+
+class _InstantTooltipFilter(QtCore.QObject):
+    """Show tooltip instantly on mouse enter, no delay."""
+    def eventFilter(self, obj, event):
+        if event.type() == QtCore.QEvent.Enter:
+            tip = obj.toolTip()
+            if tip:
+                pos = obj.mapToGlobal(QtCore.QPoint(obj.width() // 2, -20))
+                QtWidgets.QToolTip.showText(pos, tip, obj)
+        elif event.type() == QtCore.QEvent.Leave:
+            QtWidgets.QToolTip.hideText()
+        return False
+
+
+class _FractionalRowScrollTable(QtWidgets.QTableWidget):
+    """QTableWidget that scrolls 0.75 rows per wheel tick (pixel-based)."""
+    SCROLL_FRACTION = 0.75
+
+    def wheelEvent(self, event):
+        delta = event.angleDelta().y()
+        row_height = self.verticalHeader().defaultSectionSize()
+        pixel_step = int(row_height * _FractionalRowScrollTable.SCROLL_FRACTION)
+        sb = self.verticalScrollBar()
+        if delta > 0:
+            sb.setValue(sb.value() - pixel_step)
+        elif delta < 0:
+            sb.setValue(sb.value() + pixel_step)
+        event.accept()
+
+
+class _ModeToggleSwitch(QtWidgets.QCheckBox):
+    """A left/right switch that clearly shows RUN vs CAL mode."""
+
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
+        super().__init__(parent)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+        self.setText('')
+        self._thumb_position = 0.0 if self.isChecked() else 1.0
+        self._animation = QtCore.QPropertyAnimation(self, b'thumbPosition', self)
+        self._animation.setDuration(160)
+        self._animation.setEasingCurve(QtCore.QEasingCurve.OutCubic)
+        self.stateChanged.connect(self._animate_thumb)
+
+    def sizeHint(self) -> QtCore.QSize:
+        return QtCore.QSize(128, 34)
+
+    def minimumSizeHint(self) -> QtCore.QSize:
+        return self.sizeHint()
+
+    def hitButton(self, pos: QtCore.QPoint) -> bool:
+        return self.rect().contains(pos)
+
+    @QtCore.Property(float)
+    def thumbPosition(self) -> float:
+        return self._thumb_position
+
+    @thumbPosition.setter
+    def thumbPosition(self, value: float):
+        self._thumb_position = max(0.0, min(1.0, float(value)))
+        self.update()
+
+    def _animate_thumb(self, _state: int):
+        end_value = 0.0 if self.isChecked() else 1.0
+        self._animation.stop()
+        self._animation.setStartValue(self._thumb_position)
+        self._animation.setEndValue(end_value)
+        self._animation.start()
+
+    def paintEvent(self, _event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+
+        rect = QtCore.QRectF(self.rect()).adjusted(1.5, 1.5, -1.5, -1.5)
+        radius = rect.height() / 2.0
+        track_path = QtGui.QPainterPath()
+        track_path.addRoundedRect(rect, radius, radius)
+
+        track_color = QtGui.QColor(34, 41, 50)
+        border_color = QtGui.QColor(82, 92, 104)
+        active_color = QtGui.QColor(37, 166, 106) if self.isChecked() else QtGui.QColor(233, 145, 46)
+
+        painter.setPen(QtGui.QPen(border_color, 1.2))
+        painter.setBrush(track_color)
+        painter.drawPath(track_path)
+
+        active_rect = QtCore.QRectF(
+            rect.left() if self.isChecked() else rect.center().x(),
+            rect.top(),
+            rect.width() / 2.0,
+            rect.height(),
+        )
+        painter.save()
+        painter.setClipPath(track_path)
+        painter.fillRect(active_rect, active_color)
+        painter.restore()
+
+        knob_diameter = rect.height() - 8.0
+        knob_x = rect.left() + 4.0 + (self._thumb_position * (rect.width() - knob_diameter - 8.0))
+        knob_rect = QtCore.QRectF(knob_x, rect.top() + 4.0, knob_diameter, knob_diameter)
+
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.setBrush(QtGui.QColor(0, 0, 0, 50))
+        painter.drawEllipse(knob_rect.translated(0.0, 1.5))
+        painter.setBrush(QtGui.QColor(248, 250, 252))
+        painter.drawEllipse(knob_rect)
+
+        label_font = QtGui.QFont(self.font())
+        label_font.setBold(True)
+        label_font.setPointSize(max(8, label_font.pointSize()))
+        painter.setFont(label_font)
+
+        left_rect = QtCore.QRectF(rect.left() + 34.0, rect.top(), (rect.width() / 2.0) - 36.0, rect.height())
+        right_rect = QtCore.QRectF(rect.center().x() + 4.0, rect.top(), (rect.width() / 2.0) - 36.0, rect.height())
+
+        left_color = QtGui.QColor(250, 252, 255) if self.isChecked() else QtGui.QColor(156, 167, 179)
+        right_color = QtGui.QColor(250, 252, 255) if not self.isChecked() else QtGui.QColor(156, 167, 179)
+
+        painter.setPen(left_color)
+        painter.drawText(left_rect, int(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft), 'RUN')
+        painter.setPen(right_color)
+        painter.drawText(right_rect, int(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight), 'CAL')
+
+        if self.hasFocus():
+            focus_pen = QtGui.QPen(QtGui.QColor(160, 197, 255), 1.2)
+            focus_pen.setStyle(QtCore.Qt.DashLine)
+            painter.setPen(focus_pen)
+            painter.setBrush(QtCore.Qt.NoBrush)
+            painter.drawRoundedRect(rect.adjusted(2.0, 2.0, -2.0, -2.0), radius - 2.0, radius - 2.0)
+
+
+from .helpers import (
+    configure_plain_text_edit,
+    ensure_table_shape,
+    find_optional_child,
+    resource_path,
+    require_child,
+)
+
+TX_PANEL_OBJECTS = {
+    'channelCountCombo': QtWidgets.QComboBox,
+    'runButton': QtWidgets.QPushButton,
+    'stopButton': QtWidgets.QPushButton,
+    'setButton': QtWidgets.QPushButton,
+    'ratioInput1': QtWidgets.QLineEdit,
+    'ratioInput2': QtWidgets.QLineEdit,
+    'ratioInput3': QtWidgets.QLineEdit,
+    'ratioInput4': QtWidgets.QLineEdit,
+    'ratioInput5': QtWidgets.QLineEdit,
+    'ratioInput6': QtWidgets.QLineEdit,
+}
+
+TX_DEBUG_OBJECTS = {
+    'txFrameTable': QtWidgets.QTableWidget,
+    'txDataDump': QtWidgets.QPlainTextEdit,
+}
+
+def _presets_path() -> pathlib.Path:
+    """Return writable presets.json path in user data directory."""
+    if getattr(sys, 'frozen', False):
+        return pathlib.Path(sys.executable).parent / 'presets.json'
+    # Use platform-appropriate user data directory instead of package resources
+    if sys.platform == 'win32':
+        base = pathlib.Path(os.environ.get('APPDATA', str(pathlib.Path.home() / 'AppData' / 'Roaming')))
+    else:
+        base = pathlib.Path(os.environ.get('XDG_DATA_HOME', str(pathlib.Path.home() / '.local' / 'share')))
+    user_dir = base / 'snet-tester2'
+    user_dir.mkdir(parents=True, exist_ok=True)
+    return user_dir / 'presets.json'
+
+
+def _bundled_presets_path() -> pathlib.Path:
+    """Return the bundled (read-only) presets.json inside PyInstaller bundle."""
+    return resource_path('presets.json')
+
+
+PRESETS_FILE = _presets_path()
+
+DEFAULT_PRESETS = [
+    [100, 0, 0, 0, 0, 0],
+    [0, 100, 0, 0, 0, 0],
+    [0, 0, 100, 0, 0, 0],
+    [0, 0, 0, 100, 0, 0],
+    [20, 20, 20, 20, 20, 0],
+]
+
+APPLY_COL = 6  # 7th column for APPLY button
+
+_RATIO_BASE_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }'
+    'QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }'
+    'QLineEdit::placeholder { color: #888; font-weight: bold; }'
+)
+_RATIO_APPLIED_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa; border-bottom: 3px solid #4CAF50; padding: 1px 2px; }'
+    'QLineEdit:disabled { color: #999; background-color: #f0f0f0; border: 1px solid #ccc; }'
+    'QLineEdit::placeholder { color: #888; font-weight: bold; }'
+)
+
+
+def _format_ratio(value: float) -> str:
+    if value == int(value):
+        return str(int(value))
+    return f'{value:g}'
+
+
+def _parse_ratio(text: str) -> Optional[float]:
+    text = text.strip()
+    if not text:
+        return None
+    try:
+        v = float(text)
+        return max(0.0, min(100.0, v))
+    except ValueError:
+        return None
+
+
+def _format_pid_value(value: float) -> str:
+    return f'{float(value):g}'
+
+
+# --- PID / Control variable compact button styles ---
+
+_MICRO_BTN_STYLE = (
+    'QPushButton {'
+    ' font-size: 9pt; font-weight: 600;'
+    ' padding: 1px 4px;'
+    ' min-height: 20px; max-height: 22px;'
+    ' border: 1px solid #888; border-radius: 0px;'
+    ' background: #E8E8E8; color: #000;'
+    '}'
+    'QPushButton:hover { background: #D8DEE4; border-color: #555; }'
+    'QPushButton:pressed { background: #CCD4DC; }'
+)
+
+_MICRO_BTN_DIRTY_STYLE = (
+    'QPushButton {'
+    ' font-size: 9pt; font-weight: 600;'
+    ' padding: 1px 4px;'
+    ' min-height: 20px; max-height: 22px;'
+    ' border: 1px solid #E9912E; border-radius: 0px;'
+    ' background: #FFF3E0; color: #000;'
+    '}'
+    'QPushButton:hover { background: #FFE0B2; border-color: #E65100; }'
+    'QPushButton:pressed { background: #FFCC80; }'
+)
+
+_PID_CLEAN_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa; padding: 1px 2px; }'
+)
+_PID_DIRTY_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa;'
+    ' border-left: 3px solid #E9912E; padding: 1px 2px 1px 0px; }'
+)
+_PID_SYNCED_STYLE = (
+    'QLineEdit { color: #000; border: 1px solid #aaa;'
+    ' border-left: 3px solid #4CAF50; padding: 1px 2px 1px 0px; }'
+)
+
+
+class TxPanelView:
+    def __init__(self, root: QtWidgets.QWidget, debug_root: QtWidgets.QWidget, font: QtGui.QFont):
+        self._root = root
+        self._font = font
+        self._running = False
+        self._applied_payload: Optional[IoPayload] = None
+        self._frame_items: dict[str, QtWidgets.QTableWidgetItem] = {}
+        self._set_callback = None
+
+        for name, child_type in TX_PANEL_OBJECTS.items():
+            setattr(self, name, require_child(self._root, child_type, name))
+
+        for name, child_type in TX_DEBUG_OBJECTS.items():
+            setattr(self, name, require_child(debug_root, child_type, name))
+
+        self.appliedLabel = find_optional_child(self._root, QtWidgets.QLabel, 'appliedLabel')
+        self.txFrameMetaLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'txFrameMetaLabel')
+        self.pidTabInfoLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'pidTabInfoLabel')
+        self.controlVarTabInfoLabel = find_optional_child(debug_root, QtWidgets.QLabel, 'controlVarTabInfoLabel')
+        self.pidTable = find_optional_child(debug_root, QtWidgets.QTableWidget, 'pidTable')
+        self.controlVarTable = find_optional_child(debug_root, QtWidgets.QTableWidget, 'controlVarTable')
+        self.labelKp = find_optional_child(debug_root, QtWidgets.QLabel, 'label_kp')
+        self.leKpVal0 = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_val0')
+        self.leKp10p = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_10p')
+        self.leKp30p = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_30p')
+        self.leKp100p = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_100p')
+        self.leKpVal4 = find_optional_child(debug_root, QtWidgets.QLineEdit, 'le_kp_val4')
+
+        # Style PID and control variable buttons, wire dirty tracking
+        self._pid_loaded_values: dict[str, str] = {}
+        self._setup_pid_buttons(debug_root)
+
+        self.modeToggle = find_optional_child(self._root, QtWidgets.QCheckBox, 'modeToggle')
+        if self.modeToggle is not None:
+            self.modeToggle = self._upgrade_mode_toggle(self.modeToggle)
+
+        self._kp_inputs = [
+            inp for inp in (
+                self.leKpVal0,
+                self.leKp10p,
+                self.leKp30p,
+                self.leKp100p,
+                self.leKpVal4,
+            ) if inp is not None
+        ]
+        self._kp_values: tuple[float, ...] = ()
+
+        self._ratio_inputs: list[QtWidgets.QLineEdit] = [
+            getattr(self, f'ratioInput{i}') for i in range(1, MAX_CHANNELS + 1)
+        ]
+
+        self.channelCountCombo.clear()
+        self.channelCountCombo.addItems([str(i) for i in range(1, MAX_CHANNELS + 1)])
+        self.channelCountCombo.currentIndexChanged.connect(self._on_channel_count_changed)
+
+        # Fix tab order: CH1 -> CH2 -> CH3 -> CH4 -> CH5 -> CH6
+        for i in range(len(self._ratio_inputs) - 1):
+            QtWidgets.QWidget.setTabOrder(self._ratio_inputs[i], self._ratio_inputs[i + 1])
+
+        validator = QtGui.QDoubleValidator(0.0, 100.0, 2)
+        validator.setNotation(QtGui.QDoubleValidator.StandardNotation)
+        for inp in self._ratio_inputs:
+            inp.setValidator(validator)
+            # alignment and base styleSheet are set in .ui
+            inp.textChanged.connect(self._on_ratio_text_changed)
+            inp.installEventFilter(self._root)
+
+        # Instant tooltip on hover
+        self._tooltip_filter = _InstantTooltipFilter()
+        for inp in self._ratio_inputs:
+            inp.installEventFilter(self._tooltip_filter)
+
+        # labelKp toolTip is set in .ui
+
+        # Preset table
+        self.presetTable = find_optional_child(self._root, QtWidgets.QTableWidget, 'presetTable')
+        self.addPresetButton = find_optional_child(self._root, QtWidgets.QPushButton, 'addPresetButton')
+        self.delPresetButton = find_optional_child(self._root, QtWidgets.QPushButton, 'delPresetButton')
+
+        if self.addPresetButton is not None:
+            self.addPresetButton.clicked.connect(self._on_add_preset)
+        if self.delPresetButton is not None:
+            self.delPresetButton.clicked.connect(self._on_del_preset)
+
+        configure_plain_text_edit(self.txDataDump, font)
+        self._configure_frame_table()
+        # pidTable / controlVarTable header properties are set in .ui (if present)
+        self._update_channel_input_state()
+        self.refresh_pending_previews()
+        self._init_preset_table()
+
+    def _upgrade_mode_toggle(self, checkbox: QtWidgets.QCheckBox) -> _ModeToggleSwitch:
+        toggle = _ModeToggleSwitch(checkbox.parentWidget())
+        toggle.setObjectName(checkbox.objectName())
+        toggle.setToolTip(checkbox.toolTip())
+        toggle.setStatusTip(checkbox.statusTip())
+        toggle.setWhatsThis(checkbox.whatsThis())
+        toggle.setEnabled(checkbox.isEnabled())
+        toggle.setFont(self._font)
+        toggle.setChecked(checkbox.isChecked())
+        toggle.thumbPosition = 0.0 if toggle.isChecked() else 1.0
+
+        if not self._replace_widget(self._root.layout(), checkbox, toggle):
+            toggle.setParent(checkbox.parentWidget())
+            toggle.show()
+
+        checkbox.deleteLater()
+        return toggle
+
+    def _replace_widget(self, layout: Optional[QtWidgets.QLayout], source: QtWidgets.QWidget, target: QtWidgets.QWidget) -> bool:
+        if layout is None:
+            return False
+
+        for index in range(layout.count()):
+            item = layout.itemAt(index)
+            child_widget = item.widget()
+            if child_widget is source:
+                layout.insertWidget(index, target)
+                layout.removeWidget(source)
+                source.hide()
+                return True
+
+            child_layout = item.layout()
+            if child_layout is not None and self._replace_widget(child_layout, source, target):
+                return True
+
+        return False
+
+    # --- Compact PID / Control variable buttons & dirty state ---
+
+    def _setup_pid_buttons(self, debug_root: QtWidgets.QWidget):
+        """Style compact [저장][읽기] button pairs and wire dirty-state tracking."""
+        _BTN_GROUPS = [
+            ('btn_save_kp', 'btn_load_kp', 'EEPROM KP'),
+            ('btn_save_ki', 'btn_load_ki', 'EEPROM KI'),
+            ('btn_save_kd', 'btn_load_kd', 'EEPROM KD'),
+            ('btn_save_ctrl', 'btn_load_ctrl', 'EEPROM 제어변수'),
+        ]
+        self._pid_save_buttons: dict[str, QtWidgets.QPushButton] = {}
+        self._pid_load_buttons: dict[str, QtWidgets.QPushButton] = {}
+
+        for save_name, load_name, group_label in _BTN_GROUPS:
+            save_btn = find_optional_child(debug_root, QtWidgets.QPushButton, save_name)
+            load_btn = find_optional_child(debug_root, QtWidgets.QPushButton, load_name)
+            if save_btn is not None:
+                self._pid_save_buttons[save_name] = save_btn
+            if load_btn is not None:
+                self._pid_load_buttons[load_name] = load_btn
+
+        # Preserve public reference for existing code
+        # toolTips are set in .ui
+        self.btnLoadKp = self._pid_load_buttons.get('btn_load_kp')
+
+        # Wire dirty-state tracking on KP inputs
+        for inp in (self.leKpVal0, self.leKp10p, self.leKp30p, self.leKp100p, self.leKpVal4):
+            if inp is not None:
+                inp.setStyleSheet(_PID_CLEAN_STYLE)
+                self._pid_loaded_values[inp.objectName()] = inp.text()
+                inp.textChanged.connect(self._make_pid_field_handler(inp))
+
+    def _make_pid_field_handler(self, widget: QtWidgets.QLineEdit):
+        """Create a textChanged handler bound to a specific widget."""
+        def handler(_text: str):
+            name = widget.objectName()
+            loaded = self._pid_loaded_values.get(name)
+            is_dirty = loaded is not None and widget.text() != loaded
+            widget.setStyleSheet(_PID_DIRTY_STYLE if is_dirty else _PID_CLEAN_STYLE)
+            self._update_pid_save_button_state()
+        return handler
+
+    def _update_pid_save_button_state(self):
+        """Set amber style on save buttons when their column has dirty fields."""
+        column_map = {
+            'btn_save_kp': ('le_kp_val0', 'le_kp_10p', 'le_kp_30p', 'le_kp_100p', 'le_kp_val4'),
+        }
+        for btn_name, field_names in column_map.items():
+            btn = self._pid_save_buttons.get(btn_name)
+            if btn is None:
+                continue
+            has_dirty = False
+            for field_name in field_names:
+                loaded = self._pid_loaded_values.get(field_name)
+                if loaded is None:
+                    continue
+                widget = self._root.parent().findChild(QtWidgets.QLineEdit, field_name)
+                if widget is not None and widget.text() != loaded:
+                    has_dirty = True
+                    break
+            btn.setStyleSheet(_MICRO_BTN_DIRTY_STYLE if has_dirty else _MICRO_BTN_STYLE)
+
+    def _mark_pid_synced(self, field_names: Sequence[str]):
+        """Flash green border after successful save/load, then revert to clean."""
+        for name in field_names:
+            widget = self._root.parent().findChild(QtWidgets.QLineEdit, name)
+            if widget is not None:
+                self._pid_loaded_values[name] = widget.text()
+                widget.setStyleSheet(_PID_SYNCED_STYLE)
+        self._update_pid_save_button_state()
+        QtCore.QTimer.singleShot(1500, lambda: self._revert_pid_to_clean(field_names))
+
+    def _revert_pid_to_clean(self, field_names: Sequence[str]):
+        for name in field_names:
+            widget = self._root.parent().findChild(QtWidgets.QLineEdit, name)
+            if widget is not None:
+                widget.setStyleSheet(_PID_CLEAN_STYLE)
+
+    def _configure_frame_table(self):
+        table = self.txFrameTable
+        ensure_table_shape(table, 1, len(FRAME_FIXED_FIELDS), 'txFrameTable')
+        # editTriggers, selectionMode, focusPolicy, wordWrap are set in .ui
+        # ui-override: Designer 미지원 -- QHeaderView.Stretch
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+
+        for col, field in enumerate(FRAME_FIXED_FIELDS):
+            item = table.item(0, col)
+            if item is None:
+                item = QtWidgets.QTableWidgetItem(PLACEHOLDER)
+                table.setItem(0, col, item)
+            item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            self._frame_items[field] = item
+
+    def connect_actions(self, run_cb, stop_cb, set_cb):
+        self.runButton.clicked.connect(run_cb)
+        self.stopButton.clicked.connect(stop_cb)
+        self.setButton.clicked.connect(set_cb)
+        self._set_callback = set_cb
+
+    def visible_kp_field_count(self) -> int:
+        return len(self._kp_inputs)
+
+    def set_kp_values(self, relay_channel: int, values: Sequence[float]):
+        kp_values = tuple(float(value) for value in values)
+        self._kp_values = kp_values
+
+        for widget, value in zip(self._kp_inputs, kp_values):
+            widget.setText(_format_pid_value(value))
+
+        channel_text = 'ALL' if relay_channel == 0 else str(relay_channel)
+        tooltip_lines = [f'CH {channel_text}']
+        tooltip_lines.extend(f'KP{index} = {_format_pid_value(value)}' for index, value in enumerate(kp_values))
+        tooltip = '\n'.join(tooltip_lines)
+
+        if self.labelKp is not None:
+            self.labelKp.setToolTip(tooltip)
+        if self.btnLoadKp is not None:
+            self.btnLoadKp.setToolTip(tooltip)
+
+        if len(kp_values) > len(self._kp_inputs) and self._kp_inputs:
+            self._kp_inputs[-1].setToolTip(
+                f'KP{len(self._kp_inputs) - 1} = {_format_pid_value(kp_values[len(self._kp_inputs) - 1])}\n'
+                f'KP{len(self._kp_inputs)} = {_format_pid_value(kp_values[len(self._kp_inputs)])}'
+            )
+
+        # Mark KP fields as synced (green flash -> clean)
+        kp_field_names = [inp.objectName() for inp in self._kp_inputs]
+        self._mark_pid_synced(kp_field_names)
+
+    # --- Preset table ---
+
+    def _init_preset_table(self):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        self._last_applied_row = -1
+
+        # Font, stylesheet, editTriggers, scrollMode, header visibility,
+        # row height, and stretchLastSection are set in .ui.
+        # Fix APPLY column width (per-column resize mode not representable in .ui)
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(APPLY_COL, QtWidgets.QHeaderView.Fixed)
+        table.setColumnWidth(APPLY_COL, 30)
+        table.wheelEvent = lambda event: _FractionalRowScrollTable.wheelEvent(table, event)
+
+        presets = self._load_presets()
+        for values in presets:
+            self._add_preset_row(values)
+
+        table.itemChanged.connect(self._on_preset_cell_changed)
+
+    def _add_preset_row(self, values: list[float]):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        table.blockSignals(True)
+        row = table.rowCount()
+        table.insertRow(row)
+
+        preset_font = table.font()
+        for col in range(MAX_CHANNELS):
+            v = values[col] if col < len(values) else 0.0
+            item = QtWidgets.QTableWidgetItem(_format_ratio(v))
+            item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            item.setFont(preset_font)
+            table.setItem(row, col, item)
+        table.blockSignals(False)
+
+        btn = QtWidgets.QPushButton('>')
+        btn.setFont(preset_font)
+        btn.setMaximumWidth(28)
+        btn.setMaximumHeight(18)
+        btn.setStyleSheet('QPushButton { padding: 0px 2px; margin: 0px; }')
+        btn.clicked.connect(lambda _checked: self._on_preset_apply_by_button(btn))
+        table.setCellWidget(row, APPLY_COL, btn)
+
+    def _on_preset_apply_by_button(self, btn: QtWidgets.QPushButton):
+        """Find the row of the button and apply that preset."""
+        if self.presetTable is None:
+            return
+        for row in range(self.presetTable.rowCount()):
+            if self.presetTable.cellWidget(row, APPLY_COL) is btn:
+                self._on_preset_apply(row)
+                return
+
+    def _on_preset_apply(self, row: int):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        if row < 0 or row >= table.rowCount():
+            return
+        active = self._selected_channel_count()
+
+        for col in range(active):
+            item = table.item(row, col)
+            if item is not None:
+                parsed = _parse_ratio(item.text())
+                if parsed is not None:
+                    self._ratio_inputs[col].setText(_format_ratio(parsed))
+
+        # Highlight applied row
+        self._highlight_preset_row(row)
+
+        # Auto SET
+        if self._set_callback is not None:
+            self._set_callback()
+
+    def _highlight_preset_row(self, active_row: int):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        table.blockSignals(True)
+        applied_bg = QtGui.QBrush(QtGui.QColor(200, 230, 200))  # light green
+        default_bg = QtGui.QBrush(QtGui.QColor(255, 255, 255))
+        for row in range(table.rowCount()):
+            bg = applied_bg if row == active_row else default_bg
+            for col in range(MAX_CHANNELS):
+                item = table.item(row, col)
+                if item is not None:
+                    item.setBackground(bg)
+        table.clearSelection()
+        table.blockSignals(False)
+        self._last_applied_row = active_row
+
+    def _on_preset_cell_changed(self, item: QtWidgets.QTableWidgetItem):
+        if item.column() < MAX_CHANNELS:
+            self._save_presets()
+
+    def _on_add_preset(self):
+        self._add_preset_row([0.0] * MAX_CHANNELS)
+        self._save_presets()
+
+    def _on_del_preset(self):
+        if self.presetTable is None:
+            return
+        rows = set(idx.row() for idx in self.presetTable.selectedIndexes())
+        for row in sorted(rows, reverse=True):
+            self.presetTable.removeRow(row)
+        self._save_presets()
+
+    def _save_presets(self):
+        if self.presetTable is None:
+            return
+        table = self.presetTable
+        presets = []
+        for row in range(table.rowCount()):
+            values = []
+            for col in range(MAX_CHANNELS):
+                item = table.item(row, col)
+                parsed = _parse_ratio(item.text()) if item is not None else 0.0
+                values.append(parsed if parsed is not None else 0.0)
+            presets.append(values)
+        try:
+            PRESETS_FILE.write_text(json.dumps(presets, indent=2), encoding='utf-8')
+        except OSError:
+            pass
+
+    def _load_presets(self) -> list[list[float]]:
+        for path in (PRESETS_FILE, _bundled_presets_path()):
+            try:
+                data = json.loads(path.read_text(encoding='utf-8'))
+                if isinstance(data, list):
+                    return data
+            except (OSError, json.JSONDecodeError):
+                continue
+        return [row[:] for row in DEFAULT_PRESETS]
+
+    # --- Channel count ---
+
+    def _selected_channel_count(self) -> int:
+        return clamp_channel_count(int(self.channelCountCombo.currentText()))
+
+    def _on_channel_count_changed(self, *_args):
+        self._update_channel_input_state()
+        self.refresh_pending_previews()
+        # Reset highlight -- not applied yet until SET is clicked
+        self.channelCountCombo.setStyleSheet('')
+        self._clear_ratio_highlights()
+
+    def _update_channel_input_state(self):
+        active = self._selected_channel_count()
+        for i, inp in enumerate(self._ratio_inputs):
+            enabled = i < active
+            inp.setEnabled(enabled)
+            if not enabled:
+                inp.setToolTip('')
+                inp.setStyleSheet(_RATIO_BASE_STYLE)
+
+    def _on_ratio_text_changed(self, *_args):
+        self._clear_ratio_highlights()
+        self.refresh_pending_previews()
+
+    # --- Ratio preview ---
+
+    def refresh_pending_previews(self, *_args):
+        active = self._selected_channel_count()
+        for i, inp in enumerate(self._ratio_inputs):
+            if i >= active:
+                inp.setToolTip('')
+                continue
+            parsed = _parse_ratio(inp.text())
+            if parsed is None:
+                inp.setToolTip('')
+                continue
+            payload = build_io_payload_model(channel_count=1, ratio_percents=[parsed])
+            inp.setToolTip(f'0x{payload.channels[0].ratio_raw:04X}')
+
+    def build_pending_payload(self) -> IoPayload:
+        active = self._selected_channel_count()
+        ratios = []
+        for i in range(active):
+            parsed = _parse_ratio(self._ratio_inputs[i].text())
+            if parsed is None:
+                raise ValueError(f'CH{i + 1} ratio is empty or invalid')
+            ratios.append(parsed)
+        return build_io_payload_model(channel_count=active, ratio_percents=ratios)
+
+    # --- State display ---
+
+    def show_validation_error(self, message: str):
+        pass
+
+    def update_run_state(self, running: bool):
+        self._running = running
+        self.runButton.setEnabled(not running)
+        self.stopButton.setEnabled(running)
+
+    def set_applied_payload(self, io_payload: IoPayload, highlight_inputs: bool = True):
+        self._applied_payload = io_payload
+        if self.appliedLabel is not None:
+            self.appliedLabel.setText(f'Applied: {format_channel_summary(io_payload)}')
+        if highlight_inputs:
+            self._highlight_ratio_inputs(io_payload.channel_count)
+            self.channelCountCombo.setStyleSheet(
+                'QComboBox { border: 1px solid #aaa; border-bottom: 3px solid #4CAF50; padding: 1px 2px; }'
+            )
+        self.update_run_state(self._running)
+
+    def _highlight_ratio_inputs(self, active_count: int):
+        for i, inp in enumerate(self._ratio_inputs):
+            inp.setStyleSheet(_RATIO_APPLIED_STYLE if i < active_count else _RATIO_BASE_STYLE)
+
+    def _clear_ratio_highlights(self):
+        for inp in self._ratio_inputs:
+            inp.setStyleSheet(_RATIO_BASE_STYLE)
+
+    # --- Frame display ---
+
+    def update_frame(self, frame_view: Optional[FrameView], status: Optional[str] = None):
+        if frame_view is None:
+            for item in self._frame_items.values():
+                item.setText(PLACEHOLDER)
+            self.txDataDump.setPlainText(PLACEHOLDER)
+            if self.txFrameMetaLabel is not None:
+                self.txFrameMetaLabel.setText('Frame: LEN: -- | Total: --')
+            return
+
+        for field, hex_text in frame_view_fixed_rows(frame_view).items():
+            self._frame_items[field].setText(hex_text)
+        self.txDataDump.setPlainText(format_data_hexdump(frame_view.data, HEX_DUMP_BYTES_PER_LINE))
+        if self.txFrameMetaLabel is not None:
+            length_text = f'0x{frame_view.length:02X} ({frame_view.length} bytes)'
+            total_text = f'{len(frame_view.raw)} bytes'
+            self.txFrameMetaLabel.setText(f'Frame: LEN: {length_text} | Total: {total_text}')

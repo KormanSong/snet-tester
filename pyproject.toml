@@ -10,6 +10,7 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "PyQt5>=5.15",
     "PyQt5-Qt5>=5.15",
+    "PySide6>=6.8,<6.9.1",
     "pyqtgraph==0.14.0",
     "numpy==2.4.2",
     "pyserial==3.5",
@@ -17,13 +18,16 @@ dependencies = [
 
 [project.scripts]
 snet-tester = "snet_tester.main:main"
+snet-tester2 = "snet_tester2.main:main"
 snet-designer = "snet_tester._designer:main"
+snet-designer2 = "snet_tester2._designer:main"
 
 [tool.setuptools.packages.find]
-include = ["snet_tester*"]
+include = ["snet_tester*", "snet_tester2*"]
 
 [tool.setuptools.package-data]
 snet_tester = ["resources/presets.json", "resources/ui/*.ui"]
+snet_tester2 = ["resources/presets.json", "resources/ui/*.ui"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
