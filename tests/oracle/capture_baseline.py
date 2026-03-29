@@ -247,6 +247,21 @@ def scenario_s3() -> dict:
         timeline.append({"tick": tick, "type": "sample", "index": actual_samples})
         seq = (seq + 1) & 0xFF
 
+    # Extract frame hexes for parity verification
+    write_var_frame_hex = None
+    first_sample_after_skip_hex = None
+    for e in timeline:
+        if e["type"] == "write_var" and "frame_hex" in e:
+            write_var_frame_hex = e["frame_hex"]
+        if e["type"] == "sample" and "index" in e:
+            cycle_data = e.get("cycle")
+            if first_sample_after_skip_hex is None and e["tick"] > write_var_at_tick + 1:
+                # First sample after skip
+                first_sample_after_skip_hex = _run_mock_cycle(
+                    (SEQ_START + e["tick"] - 1) & 0xFF,  # approximate seq
+                    e["index"], payload,
+                ).get("request_hex")
+
     return {
         "name": "s3_write_var_skip",
         "total_timer_ticks": total_timer_ticks,
@@ -254,6 +269,8 @@ def scenario_s3() -> dict:
         "actual_samples": actual_samples,
         "skipped_cycles": skipped_cycles,
         "expected_skipped": 1,
+        "write_var_frame_hex": write_var_frame_hex,
+        "write_var_params": {"var_index": FULL_OPEN_VALUE_VAR_INDEX, "value": 42000},
         "timeline_summary": [
             {"tick": e["tick"], "type": e["type"]} for e in timeline
         ],

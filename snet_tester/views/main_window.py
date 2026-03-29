@@ -1,4 +1,9 @@
-"""Main window — assembles panels, routes events, manages worker lifecycle."""
+"""Main window -- assembles panels, routes events, manages worker lifecycle.
+
+v2 core integration: uses typed dataclass events/commands from snet_tester2
+instead of v1 string-based ('kind', payload) tuples.  MockTransport replaces
+the old QTimer-based mock sample generation.
+"""
 
 import queue
 import threading
@@ -11,17 +16,6 @@ from PyQt5 import QtCore, QtWidgets
 
 from ..config import SerialConfig
 from ..protocol.codec import (
-    build_brooks_get_kp_frame,
-    build_brooks_get_kp_response_frame,
-    build_frame,
-    build_io_payload_bytes,
-    build_mock_snet_monitor_payload,
-    build_read_var_frame,
-    build_write_var_frame,
-    decode_brooks_kp_payload,
-    decode_frame_view,
-    decode_io_payload,
-    decode_snet_monitor_payload,
     default_io_payload,
     first_monitor_ratio_percent,
     format_sample_log,
@@ -29,16 +23,37 @@ from ..protocol.codec import (
 from ..protocol.constants import (
     FULL_OPEN_VALUE_VAR_INDEX,
     MAX_CHANNELS,
-    REQUEST_CMD,
-    RESPONSE_CMD,
     SAMPLE_PERIOD_S,
-    SEQ_START,
     WRITE_VAR_FULL_OPEN_CONTROL_FLAG_INDEX,
     WRITE_VAR_MODE_FLAG_INDEX,
     WRITE_VAR_READ_AD_FLAG_INDEX,
 )
 from ..protocol.types import IoPayload, SampleEvent, SnetMonitorSnapshot
-from ..comm.worker import SerialWorker
+
+from snet_tester2.comm.worker import SerialWorker as V2SerialWorker
+from snet_tester2.comm.commands import (
+    ApplySetpointCommand,
+    BrooksGetKpCommand,
+    ReadVarCommand,
+    SetRunningCommand,
+    WriteVarCommand,
+)
+from snet_tester2.comm.events import (
+    AppliedSetpointEvent,
+    BrooksKpEvent,
+    ErrorEvent,
+    RxFrameEvent,
+    RxMonitorEvent,
+    RunStateEvent,
+    SampleReceivedEvent,
+    TxFrameEvent,
+    VarValueEvent,
+    WorkerDoneEvent,
+)
+from snet_tester2.config import WorkerConfig
+from snet_tester2.transport.mock import MockTransport
+from snet_tester2.transport.serial import SerialTransport
+
 from .helpers import build_fixed_font, load_ui, require_child, find_optional_child
 from .tx_panel import TxPanelView
 from .rx_panel import RxPanelView
@@ -46,7 +61,6 @@ from .plot_view import PlotView
 from .response_tracker import ResponseTimeTracker
 
 UI_TIMER_MS = 20
-MOCK_LATENCY_MS = 5.0
 MAIN_WINDOW_START_SIZE = (1280, 820)
 MAIN_WINDOW_MIN_SIZE = (1120, 760)
 SIDE_PANEL_WIDTH = 455
@@ -118,20 +132,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._last_error_message = None
         self._applied_payload = default_io_payload(channel_count=1)
         self._awaiting_apply_feedback = False
-        self._mock_running = False
-        self._mock_seq = SEQ_START
-        self._mock_index = 0
-        self._mock_skip_cycles = 0
-        self._mock_var_values = {
-            FULL_OPEN_VALUE_VAR_INDEX: 0,
-        }
-        self._mock_kp_values = (0.25, 0.75, 1.5, 3.0, 4.5, 6.0)
         self._relay_channel = 0
 
         self._event_queue: queue.SimpleQueue = queue.SimpleQueue()
         self._command_queue: queue.SimpleQueue = queue.SimpleQueue()
         self._stop_event = threading.Event()
-        self._worker: Optional[SerialWorker] = None
+        self._worker: Optional[V2SerialWorker] = None
 
         self._lat_stats = RunningStats()
         self._rx_ratio_stats = RunningStats()
@@ -158,11 +164,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._init_relay_channel_selector()
         self.calibrationGroup = self._build_calibration_group()
         if self.calibrationGroup is not None:
-            # ui-override: 동적 생성 위젯 — .ui 이관 대상
+            # ui-override: 동적 생성 위젯 -- .ui 이관 대상
             self.calibrationGroup.setMinimumWidth(SIDE_PANEL_WIDTH)
             self.calibrationGroup.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
-        # ui-override: Designer 미지원 — QHBoxLayout stretch는 .ui XML에 표현 불가
+        # ui-override: Designer 미지원 -- QHBoxLayout stretch는 .ui XML에 표현 불가
         central_layout = self.centralWidget().layout()
         if isinstance(central_layout, QtWidgets.QHBoxLayout):
             central_layout.setStretch(0, 5)
@@ -170,7 +176,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # minimumSize and geometry are set in .ui
 
-        # Port combo — starts empty, connect on selection
+        # Port combo -- starts empty, connect on selection
         self._port_combo = find_optional_child(self.txPanel, QtWidgets.QComboBox, 'portCombo')
         if self._port_combo is not None:
             self._populate_ports()
@@ -178,9 +184,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tx_panel = TxPanelView(root=self.txPanel, debug_root=self.debugTabWidget, font=fixed_font)
         self.rx_panel = RxPanelView(root=self.rxPanel, debug_root=self.debugTabWidget, font=fixed_font)
-        self.rx_panel.set_full_open_value_raw(
-            self._mock_var_values.get(FULL_OPEN_VALUE_VAR_INDEX) if self._mock_mode else None
-        )
+        self.rx_panel.set_full_open_value_raw(None)
 
         for name, child_type in PLOT_PANEL_OBJECTS.items():
             setattr(self, name, require_child(self.plotPanel, child_type, name))
@@ -213,14 +217,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self._ui_timer.timeout.connect(self._on_ui_timer)
         self._ui_timer.start()
 
-        self._mock_timer: Optional[QtCore.QTimer] = None
-        if self._mock_mode:
-            self._mock_timer = QtCore.QTimer(self)
-            self._mock_timer.setInterval(max(1, int(SAMPLE_PERIOD_S * 1000)))
-            self._mock_timer.timeout.connect(self._emit_mock_sample)
+        if mock_mode:
+            transport = MockTransport()
+            worker_config = WorkerConfig(
+                rx_timeout_s=self._config.rx_timeout_s,
+                sample_period_s=max(0.001, self._config.sample_period_s),
+                run_forever=self._config.run_forever,
+                test_count=self._config.test_count,
+            )
+            self._worker = V2SerialWorker(
+                transport=transport,
+                event_queue=self._event_queue,
+                command_queue=self._command_queue,
+                stop_event=self._stop_event,
+                config=worker_config,
+            )
+            self._worker.start()
+            self._command_queue.put(ReadVarCommand(var_index=FULL_OPEN_VALUE_VAR_INDEX))
             self.statusBar().showMessage('Mock mode enabled')
         else:
-            # Don't start worker yet — wait for port selection
             self.statusBar().showMessage('Select COM port to connect')
 
     def minimumSizeHint(self):
@@ -276,7 +291,7 @@ class MainWindow(QtWidgets.QMainWindow):
         debug_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
         debug_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         debug_scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
-        # ui-override: 동적 생성 스크롤 영역 + debugTabWidget 재배치 — .ui 이관 대상
+        # ui-override: 동적 생성 스크롤 영역 + debugTabWidget 재배치 -- .ui 이관 대상
         debug_scroll.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.debugTabWidget.setMinimumSize(0, 0)
         self.debugTabWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
@@ -303,58 +318,55 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_ui_timer(self):
         while True:
             try:
-                kind, payload = self._event_queue.get_nowait()
+                event = self._event_queue.get_nowait()
             except queue.Empty:
                 break
-            self._handle_event(kind, payload)
+            self._handle_event(event)
         self.plot_view.refresh()
 
     # --- Event routing ---
 
-    def _handle_event(self, kind: str, payload):
-        if kind == 'run_state':
-            self.tx_panel.update_run_state(payload)
-            self.plot_view.set_run_state(payload)
+    def _handle_event(self, event):
+        if isinstance(event, RunStateEvent):
+            self.tx_panel.update_run_state(event.running)
+            self.plot_view.set_run_state(event.running)
             return
 
-        if kind == 'applied_setpoint':
-            self._applied_payload = payload
-            self.tx_panel.set_applied_payload(payload, highlight_inputs=self._awaiting_apply_feedback)
+        if isinstance(event, AppliedSetpointEvent):
+            self._applied_payload = event.payload
+            self.tx_panel.set_applied_payload(event.payload, highlight_inputs=self._awaiting_apply_feedback)
             self._awaiting_apply_feedback = False
-            self.plot_view.note_applied_payload(payload)
-            self.plot_view.set_series_counts(tx_count=payload.channel_count)
-            # Response time: start measurement
-            self._response_tracker.start(payload, self._last_rx_monitor)
+            self.plot_view.note_applied_payload(event.payload)
+            self.plot_view.set_series_counts(tx_count=event.payload.channel_count)
+            self._response_tracker.start(event.payload, self._last_rx_monitor)
             if self._response_tracker.is_active and self.plot_view.plotLastUpdateValueLabel is not None:
                 self.plot_view.plotLastUpdateValueLabel.setText('-- s')
             return
 
-        if kind == 'tx_frame':
-            self.tx_panel.update_frame(payload)
+        if isinstance(event, TxFrameEvent):
+            self.tx_panel.update_frame(event.frame)
             return
 
-        if kind == 'rx_frame':
-            self.rx_panel.update_frame(payload, status='OK' if payload is not None else 'TIMEOUT')
+        if isinstance(event, RxFrameEvent):
+            self.rx_panel.update_frame(event.frame, status='OK' if event.frame is not None else 'TIMEOUT')
             return
 
-        if kind == 'rx_monitor':
-            self._last_rx_monitor = payload
-            self.rx_panel.update_monitor(payload, status='OK' if payload is not None else 'TIMEOUT')
-            self.plot_view.note_rx_monitor(payload)
+        if isinstance(event, RxMonitorEvent):
+            self._last_rx_monitor = event.monitor
+            self.rx_panel.update_monitor(event.monitor, status='OK' if event.monitor is not None else 'TIMEOUT')
+            self.plot_view.note_rx_monitor(event.monitor)
             return
 
-        if kind == 'var_value':
-            var_index, value = payload
-            if var_index == FULL_OPEN_VALUE_VAR_INDEX:
-                self.rx_panel.set_full_open_value_raw(value)
+        if isinstance(event, VarValueEvent):
+            if event.var_index == FULL_OPEN_VALUE_VAR_INDEX:
+                self.rx_panel.set_full_open_value_raw(event.value)
             return
 
-        if kind == 'brooks_kp_values':
-            relay_channel, values = payload
-            self.tx_panel.set_kp_values(relay_channel, values)
+        if isinstance(event, BrooksKpEvent):
+            self.tx_panel.set_kp_values(event.channel, event.values)
             visible_count = self.tx_panel.visible_kp_field_count()
-            channel_text = 'ALL' if relay_channel == 0 else str(relay_channel)
-            if len(values) > visible_count:
+            channel_text = 'ALL' if event.channel == 0 else str(event.channel)
+            if len(event.values) > visible_count:
                 self.statusBar().showMessage(
                     f'KP loaded from CH {channel_text} (extra value available in tooltip)'
                 )
@@ -362,66 +374,60 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage(f'KP loaded from CH {channel_text}')
             return
 
-        if kind == 'sample':
-            event: SampleEvent = payload
+        if isinstance(event, SampleReceivedEvent):
+            sample = event.sample
             self._total += 1
-            self.plot_view.add_point(event.tx_payload, event.rx_monitor)
-            print(format_sample_log(event, self._config.run_forever, self._config.test_count))
+            self.plot_view.add_point(sample.tx_payload, sample.rx_monitor)
+            print(format_sample_log(sample, self._config.run_forever, self._config.test_count))
 
-            # Response time check
-            elapsed = self._response_tracker.check(event)
+            elapsed = self._response_tracker.check(sample)
             if elapsed is not None and self.plot_view.plotLastUpdateValueLabel is not None:
                 self.plot_view.plotLastUpdateValueLabel.setText(f'{elapsed:.2f} s')
 
-            if event.success:
+            if sample.success:
                 self._success_count += 1
-                self._lat_stats.add(event.latency_ms)
+                self._lat_stats.add(sample.latency_ms)
                 if self._latencies is not None:
-                    self._latencies.append(event.latency_ms)
+                    self._latencies.append(sample.latency_ms)
             else:
                 self._fail_count += 1
 
-            rx_ratio = first_monitor_ratio_percent(event.rx_monitor)
+            rx_ratio = first_monitor_ratio_percent(sample.rx_monitor)
             if rx_ratio is not None:
                 self._rx_ratio_stats.add(rx_ratio)
                 if self._rx_ratios is not None:
                     self._rx_ratios.append(rx_ratio)
             return
 
-        if kind == 'error':
-            self._last_error_message = payload
-            print(payload)
-            self.statusBar().showMessage(payload)
+        if isinstance(event, ErrorEvent):
+            self._last_error_message = event.message
+            print(event.message)
+            self.statusBar().showMessage(event.message)
             return
 
-        if kind == 'done':
+        if isinstance(event, WorkerDoneEvent):
             self.tx_panel.update_run_state(False)
             self.plot_view.set_run_state(False)
-            self.statusBar().showMessage('Worker stopped')
+            if not self._last_error_message:
+                self.statusBar().showMessage('Worker stopped')
 
     # --- Button callbacks ---
 
     def _on_run_clicked(self):
-        if self._mock_mode:
-            self._mock_running = True
-            self.tx_panel.update_run_state(True)
-            self.plot_view.set_run_state(True)
-            if self._mock_timer is not None:
-                self._mock_timer.start()
+        if self._worker is None:
+            self.statusBar().showMessage('Select COM port to connect')
             return
-        self._command_queue.put(('set_running', True))
+        self._command_queue.put(SetRunningCommand(running=True))
 
     def _on_stop_clicked(self):
-        if self._mock_mode:
-            self._mock_running = False
-            self.tx_panel.update_run_state(False)
-            self.plot_view.set_run_state(False)
-            if self._mock_timer is not None:
-                self._mock_timer.stop()
+        if self._worker is None:
             return
-        self._command_queue.put(('set_running', False))
+        self._command_queue.put(SetRunningCommand(running=False))
 
     def _on_set_clicked(self):
+        if self._worker is None:
+            self.statusBar().showMessage('Select COM port to connect')
+            return
         try:
             pending_payload = self.tx_panel.build_pending_payload()
         except ValueError as exc:
@@ -430,24 +436,17 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         self._awaiting_apply_feedback = True
-        if self._mock_mode:
-            self._handle_event('applied_setpoint', pending_payload)
-            return
-        self._command_queue.put(('apply_setpoint', pending_payload))
+        self._command_queue.put(ApplySetpointCommand(payload=pending_payload))
 
     def _on_ad_command_toggled(self, checked: bool):
-        value = 1 if checked else 0
-        if self._mock_mode:
-            self._emit_mock_write_var(WRITE_VAR_READ_AD_FLAG_INDEX, value)
+        if self._worker is None:
             return
-        self._command_queue.put(('write_var', (WRITE_VAR_READ_AD_FLAG_INDEX, value)))
+        self._command_queue.put(WriteVarCommand(var_index=WRITE_VAR_READ_AD_FLAG_INDEX, value=1 if checked else 0))
 
     def _on_full_open_control_toggled(self, checked: bool):
-        value = 1 if checked else 0
-        if self._mock_mode:
-            self._emit_mock_write_var(WRITE_VAR_FULL_OPEN_CONTROL_FLAG_INDEX, value)
+        if self._worker is None:
             return
-        self._command_queue.put(('write_var', (WRITE_VAR_FULL_OPEN_CONTROL_FLAG_INDEX, value)))
+        self._command_queue.put(WriteVarCommand(var_index=WRITE_VAR_FULL_OPEN_CONTROL_FLAG_INDEX, value=1 if checked else 0))
 
     def _on_full_open_apply_clicked(self):
         try:
@@ -456,117 +455,26 @@ class MainWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage(str(exc))
             return
 
-        if self._mock_mode:
-            self._emit_mock_write_var(FULL_OPEN_VALUE_VAR_INDEX, raw_value)
-            return
-
         if self._worker is None:
             self.statusBar().showMessage('Select COM port to connect')
             return
 
-        self._command_queue.put(('write_var', (FULL_OPEN_VALUE_VAR_INDEX, raw_value)))
+        self._command_queue.put(WriteVarCommand(var_index=FULL_OPEN_VALUE_VAR_INDEX, value=raw_value))
 
     def _on_mode_toggled(self, checked: bool):
-        """checked=True → CAL mode, False → RUN mode."""
-        value = 1 if checked else 0
-        if self._mock_mode:
-            self._emit_mock_write_var(WRITE_VAR_MODE_FLAG_INDEX, value)
+        """checked=True -> CAL mode, False -> RUN mode."""
+        if self._worker is None:
             return
-        self._command_queue.put(('write_var', (WRITE_VAR_MODE_FLAG_INDEX, value)))
+        self._command_queue.put(WriteVarCommand(var_index=WRITE_VAR_MODE_FLAG_INDEX, value=1 if checked else 0))
 
     def _on_load_kp_clicked(self):
-        if self._mock_mode:
-            self._emit_mock_brooks_get_kp(self._relay_channel)
-            return
-
         if self._worker is None:
             self.statusBar().showMessage('Select COM port to connect')
             return
 
         channel_text = 'ALL' if self._relay_channel == 0 else str(self._relay_channel)
         self.statusBar().showMessage(f'Loading KP from CH {channel_text}...')
-        self._command_queue.put(('brooks_get_kp', self._relay_channel))
-
-    # --- Mock ---
-
-    def _emit_mock_write_var(self, var_index: int, value: int):
-        if var_index == FULL_OPEN_VALUE_VAR_INDEX:
-            self._mock_var_values[var_index] = value
-        request = build_write_var_frame(self._mock_seq, var_index, value)
-        tx_frame = decode_frame_view(request)
-        response = build_write_var_frame(self._mock_seq, var_index, value)
-        rx_frame = decode_frame_view(response)
-        self._handle_event('tx_frame', tx_frame)
-        self._handle_event('rx_frame', rx_frame)
-        if var_index == FULL_OPEN_VALUE_VAR_INDEX:
-            self._handle_event('var_value', (var_index, value))
-        self._mock_seq = (self._mock_seq + 1) & 0xFF
-        if self._mock_running:
-            self._mock_skip_cycles = max(self._mock_skip_cycles, 1)
-
-    def _emit_mock_read_var(self, var_index: int):
-        value = self._mock_var_values.get(var_index, 0)
-        request = build_read_var_frame(self._mock_seq, var_index)
-        tx_frame = decode_frame_view(request)
-        response = build_write_var_frame(self._mock_seq, var_index, value)
-        rx_frame = decode_frame_view(response)
-        self._handle_event('tx_frame', tx_frame)
-        self._handle_event('rx_frame', rx_frame)
-        self._handle_event('var_value', (var_index, value))
-        self._mock_seq = (self._mock_seq + 1) & 0xFF
-
-    def _emit_mock_brooks_get_kp(self, relay_channel: int):
-        request = build_brooks_get_kp_frame(self._mock_seq, ch=relay_channel)
-        tx_frame = decode_frame_view(request)
-        response = build_brooks_get_kp_response_frame(
-            self._mock_seq,
-            self._mock_kp_values,
-            ch=relay_channel,
-        )
-        rx_frame = decode_frame_view(response)
-        decoded = decode_brooks_kp_payload(rx_frame.data)
-
-        self._handle_event('tx_frame', tx_frame)
-        self._handle_event('rx_frame', rx_frame)
-        if decoded is not None:
-            self._handle_event('brooks_kp_values', (relay_channel, decoded))
-        self._mock_seq = (self._mock_seq + 1) & 0xFF
-
-    def _emit_mock_sample(self):
-        if self._mock_skip_cycles > 0:
-            self._mock_skip_cycles -= 1
-            return
-        if not self._mock_running:
-            return
-
-        self._mock_index += 1
-        request_payload = build_io_payload_bytes(self._applied_payload)
-        request = build_frame(self._mock_seq, REQUEST_CMD, request_payload)
-        tx_frame = decode_frame_view(request)
-        tx_payload = decode_io_payload(tx_frame.data)
-
-        response_payload = build_mock_snet_monitor_payload(self._applied_payload)
-        response = build_frame(self._mock_seq, RESPONSE_CMD, response_payload)
-        rx_frame = decode_frame_view(response)
-        rx_monitor = decode_snet_monitor_payload(rx_frame.data)
-
-        self._handle_event('tx_frame', tx_frame)
-        self._handle_event('rx_frame', rx_frame)
-        self._handle_event('rx_monitor', rx_monitor)
-        self._handle_event(
-            'sample',
-            SampleEvent(
-                index=self._mock_index,
-                seq=self._mock_seq,
-                request_raw=request,
-                response_raw=response,
-                tx_payload=tx_payload if tx_payload is not None else self._applied_payload,
-                rx_monitor=rx_monitor,
-                latency_ms=MOCK_LATENCY_MS,
-                success=True,
-            ),
-        )
-        self._mock_seq = (self._mock_seq + 1) & 0xFF
+        self._command_queue.put(BrooksGetKpCommand(channel=self._relay_channel))
 
     # --- Port combo ---
 
@@ -585,28 +493,38 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_port_selected(self, port_name: str):
         if not port_name or self._mock_mode:
             return
-        # Stop existing worker if any
         if self._worker is not None:
-            self._command_queue.put(('set_running', False))
+            self._command_queue.put(SetRunningCommand(running=False))
             self._stop_event.set()
             self._worker.join(timeout=2.0)
-            self._on_ui_timer()  # drain remaining events
+            self._on_ui_timer()
             self._worker = None
-
-        # Start new worker with selected port
+        # Drain stale commands (reuse queues, don't recreate)
+        while not self._command_queue.empty():
+            try:
+                self._command_queue.get_nowait()
+            except queue.Empty:
+                break
         self._stop_event = threading.Event()
-        self._event_queue = queue.SimpleQueue()
-        self._command_queue = queue.SimpleQueue()
+        self._last_error_message = None
         self._config.port = port_name
-        self._worker = SerialWorker(
+        transport = SerialTransport(port=port_name, baud=self._config.baud)
+        worker_config = WorkerConfig(
+            rx_timeout_s=self._config.rx_timeout_s,
+            sample_period_s=self._config.sample_period_s,
+            run_forever=self._config.run_forever,
+            test_count=self._config.test_count,
+        )
+        self._worker = V2SerialWorker(
+            transport=transport,
             event_queue=self._event_queue,
             command_queue=self._command_queue,
             stop_event=self._stop_event,
-            config=self._config,
+            config=worker_config,
         )
         self._worker.start()
         self.rx_panel.set_full_open_value_raw(None)
-        self._command_queue.put(('read_var', FULL_OPEN_VALUE_VAR_INDEX))
+        self._command_queue.put(ReadVarCommand(var_index=FULL_OPEN_VALUE_VAR_INDEX))
         self.statusBar().showMessage(f'Connected: {port_name}')
 
     # --- Lifecycle ---
@@ -616,10 +534,8 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._shutdown_done = True
         self._ui_timer.stop()
-        if self._mock_timer is not None:
-            self._mock_timer.stop()
         if self._worker is not None:
-            self._command_queue.put(('set_running', False))
+            self._command_queue.put(SetRunningCommand(running=False))
             self._stop_event.set()
             self._worker.join(timeout=2.0)
             self._on_ui_timer()

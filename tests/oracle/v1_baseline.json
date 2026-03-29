@@ -180,6 +180,11 @@
       "actual_samples": 18,
       "skipped_cycles": 1,
       "expected_skipped": 1,
+      "write_var_frame_hex": "a55ac5000000020a1000000000000000a410",
+      "write_var_params": {
+        "var_index": 4096,
+        "value": 42000
+      },
       "timeline_summary": [
         {
           "tick": 0,
