@@ -401,51 +401,40 @@ class PlotView:
             axis.setTickFont(valve_tick_font)
 
     def _configure_toggle_buttons(self):
-        btn_font = QtGui.QFont(self._font)
-        btn_font.setPointSize(max(8, btn_font.pointSize() - 1))
         for i, color in enumerate(CHANNEL_COLORS, start=1):
             tx_btn = self._toggle_buttons[(i - 1, 'tx')]
             rx_btn = self._toggle_buttons[(i - 1, 'rx')]
-            self._configure_toggle_button(tx_btn, color, btn_font)
-            self._configure_toggle_button(rx_btn, color, btn_font)
+            self._configure_toggle_button(tx_btn, color)
+            self._configure_toggle_button(rx_btn, color)
             tx_btn.toggled.connect(lambda _checked: self._apply_curve_visibility())
             rx_btn.toggled.connect(lambda _checked: self._apply_curve_visibility())
 
-    def _configure_toggle_button(self, button: QtWidgets.QPushButton, color, font: QtGui.QFont):
+    def _configure_toggle_button(self, button: QtWidgets.QPushButton, color):
+        # ui-dynamic: 채널색(Okabe-Ito)은 런타임 계산 -- checkable/checked/height/font/base style은 .ui에서 설정
+        # setStyleSheet() replaces (not merges), so read the .ui base stylesheet
+        # and substitute the neutral gray placeholder with the actual channel color.
         dim = (
             max(145, min(230, int((color[0] * 0.45) + 125))),
             max(145, min(230, int((color[1] * 0.45) + 125))),
             max(145, min(230, int((color[2] * 0.45) + 125))),
         )
-        button.setCheckable(True)
-        button.setChecked(True)
-        button.setMinimumHeight(24)
-        button.setFont(font)
-        button.setStyleSheet(
-            'QPushButton {'
-            f' background-color: rgb(244, 248, 252);'
-            ' color: rgb(71, 85, 105);'
-            ' border-top: 1px solid rgb(224, 231, 239);'
-            ' border-right: 1px solid rgb(213, 221, 230);'
-            ' border-bottom: 1px solid rgb(205, 214, 224);'
-            f' border-left: 3px solid rgb({dim[0]}, {dim[1]}, {dim[2]});'
-            ' border-radius: 0px;'
-            ' padding: 3px 7px 3px 6px;'
-            ' text-align: left;'
-            '}'
-            'QPushButton:checked {'
-            ' background-color: rgb(235, 242, 250);'
-            ' color: rgb(15, 23, 42);'
-            f' border-top: 1px solid rgb(206, 217, 234);'
-            f' border-right: 1px solid rgb(206, 217, 234);'
-            ' border-bottom: 1px solid rgb(171, 183, 198);'
-            f' border-left: 3px solid rgb({color[0]}, {color[1]}, {color[2]});'
-            '}'
-            'QPushButton:pressed {'
-            ' background-color: rgb(224, 235, 247);'
-            ' color: rgb(15, 23, 42);'
-            '}'
-        )
+        base_ss = button.styleSheet()
+        # Replace placeholder border-left in unchecked state (first occurrence)
+        # and checked state (second occurrence)
+        placeholder = 'border-left: 3px solid rgb(200, 200, 200)'
+        dim_border = f'border-left: 3px solid rgb({dim[0]}, {dim[1]}, {dim[2]})'
+        full_border = f'border-left: 3px solid rgb({color[0]}, {color[1]}, {color[2]})'
+        # First occurrence = QPushButton (unchecked) -> dim color
+        # Second occurrence = QPushButton:checked -> full color
+        first_pos = base_ss.find(placeholder)
+        if first_pos >= 0:
+            second_pos = base_ss.find(placeholder, first_pos + len(placeholder))
+            if second_pos >= 0:
+                # Replace second (checked) first to preserve positions
+                base_ss = base_ss[:second_pos] + full_border + base_ss[second_pos + len(placeholder):]
+            # Replace first (unchecked)
+            base_ss = base_ss[:first_pos] + dim_border + base_ss[first_pos + len(placeholder):]
+        button.setStyleSheet(base_ss)
 
     def _apply_curve_visibility(self):
         for ch in range(MAX_CHANNELS):

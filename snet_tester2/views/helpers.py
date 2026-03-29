@@ -109,6 +109,7 @@ def load_ui(widget, filename: str):
 def attach_widget(host: QtWidgets.QWidget, child: QtWidgets.QWidget):
     layout = host.layout()
     if layout is None:
+        # ui-override: Python 전용 위젯 삽입 시 레이아웃 초기화
         layout = QtWidgets.QVBoxLayout(host)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -130,6 +131,7 @@ def configure_plain_text_edit(text_edit: QtWidgets.QPlainTextEdit, font: QtGui.Q
     text_edit.setPlainText(PLACEHOLDER)
 
 
+# ui-override: 시스템 고정폭 폰트는 런타임에 결정 — 플랫폼별 차이 발생 가능
 def build_fixed_font() -> QtGui.QFont:
     font = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
     font.setPointSize(10)

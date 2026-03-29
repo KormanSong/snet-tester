@@ -259,12 +259,17 @@ class MainWindow(QtWidgets.QMainWindow):
         if relay_index < 0 or debug_index < 0:
             return None
 
+        # ui-dynamic: calibrationGroup .ui 미정의, 런타임 동적 조립 — EXEMPT (.ui 이관 대상)
         calibration_group = QtWidgets.QGroupBox('Calibration', self.centralWidget())
         calibration_group.setObjectName('calibrationGroup')
+        # ui-dynamic: calibrationGroup 동적 위젯
         calibration_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
 
+        # ui-dynamic: calibrationGroup 내부 레이아웃
         group_layout = QtWidgets.QVBoxLayout(calibration_group)
+        # ui-dynamic: calibrationGroup 내부 마진
         group_layout.setContentsMargins(6, 6, 6, 6)
+        # ui-dynamic: calibrationGroup 내부 간격
         group_layout.setSpacing(3)
 
         # relayChannelBar title, flat, styleSheet, min/maxHeight are set in .ui
@@ -272,10 +277,13 @@ class MainWindow(QtWidgets.QMainWindow):
         right_layout.removeWidget(self.relayChannelBar)
         right_layout.removeWidget(self.debugTabWidget)
         group_layout.addWidget(self.relayChannelBar)
+        # ui-dynamic: calibrationGroup 스크롤 영역
         debug_scroll = QtWidgets.QScrollArea(calibration_group)
         debug_scroll.setObjectName('calibrationScrollArea')
+        # ui-dynamic: calibrationGroup 스크롤 설정
         debug_scroll.setWidgetResizable(True)
         debug_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        # ui-dynamic: calibrationGroup 스크롤바 정책
         debug_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         debug_scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
         # ui-override: 동적 생성 스크롤 영역 + debugTabWidget 재배치 -- .ui 이관 대상

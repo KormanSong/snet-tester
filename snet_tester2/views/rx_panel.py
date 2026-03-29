@@ -136,6 +136,7 @@ class RxPanelView:
         self._table_enabled_brush = QtGui.QBrush(palette.color(QtGui.QPalette.Text))
         self._table_disabled_brush = QtGui.QBrush(palette.color(QtGui.QPalette.Disabled, QtGui.QPalette.Text))
 
+        # ui-dynamic: 테이블 아이템 런타임 생성, textAlignment 동적 설정
         for row in range(4):
             for col in range(MAX_CHANNELS):
                 item = table.item(row, col)
@@ -153,6 +154,7 @@ class RxPanelView:
         # ui-override: Designer 미지원 -- QHeaderView.Stretch
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
+        # ui-dynamic: 프레임 테이블 아이템 런타임 생성
         for col, field in enumerate(FRAME_FIXED_FIELDS):
             item = table.item(0, col)
             if item is None:

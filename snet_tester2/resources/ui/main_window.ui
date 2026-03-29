@@ -447,12 +447,96 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
               <property name="text">
                <string>SET1</string>
               </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
+              </property>
              </widget>
             </item>
             <item row="0" column="2">
              <widget class="QPushButton" name="legendTx2Button">
               <property name="text">
                <string>SET2</string>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
               </property>
              </widget>
             </item>
@@ -461,12 +545,96 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
               <property name="text">
                <string>SET3</string>
               </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
+              </property>
              </widget>
             </item>
             <item row="0" column="4">
              <widget class="QPushButton" name="legendTx4Button">
               <property name="text">
                <string>SET4</string>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
               </property>
              </widget>
             </item>
@@ -475,12 +643,96 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
               <property name="text">
                <string>SET5</string>
               </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
+              </property>
              </widget>
             </item>
             <item row="0" column="6">
              <widget class="QPushButton" name="legendTx6Button">
               <property name="text">
                <string>SET6</string>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
               </property>
              </widget>
             </item>
@@ -489,12 +741,96 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
               <property name="text">
                <string>RATIO1</string>
               </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
+              </property>
              </widget>
             </item>
             <item row="1" column="2">
              <widget class="QPushButton" name="legendRx2Button">
               <property name="text">
                <string>RATIO2</string>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
               </property>
              </widget>
             </item>
@@ -503,12 +839,96 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
               <property name="text">
                <string>RATIO3</string>
               </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
+              </property>
              </widget>
             </item>
             <item row="1" column="4">
              <widget class="QPushButton" name="legendRx4Button">
               <property name="text">
                <string>RATIO4</string>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
               </property>
              </widget>
             </item>
@@ -517,12 +937,96 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
               <property name="text">
                <string>RATIO5</string>
               </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
+              </property>
              </widget>
             </item>
             <item row="1" column="6">
              <widget class="QPushButton" name="legendRx6Button">
               <property name="text">
                <string>RATIO6</string>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>24</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+ background-color: rgb(244, 248, 252);
+ color: rgb(71, 85, 105);
+ border-top: 1px solid rgb(224, 231, 239);
+ border-right: 1px solid rgb(213, 221, 230);
+ border-bottom: 1px solid rgb(205, 214, 224);
+ border-left: 3px solid rgb(200, 200, 200);
+ border-radius: 0px;
+ padding: 3px 7px 3px 6px;
+ text-align: left;
+}
+QPushButton:checked {
+ background-color: rgb(235, 242, 250);
+ color: rgb(15, 23, 42);
+ border-top: 1px solid rgb(206, 217, 234);
+ border-right: 1px solid rgb(206, 217, 234);
+ border-bottom: 1px solid rgb(171, 183, 198);
+ border-left: 3px solid rgb(200, 200, 200);
+}
+QPushButton:pressed {
+ background-color: rgb(224, 235, 247);
+ color: rgb(15, 23, 42);
+}</string>
               </property>
              </widget>
             </item>

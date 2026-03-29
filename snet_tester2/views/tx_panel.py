@@ -373,6 +373,7 @@ class TxPanelView:
         self._init_preset_table()
 
     def _upgrade_mode_toggle(self, checkbox: QtWidgets.QCheckBox) -> _ModeToggleSwitch:
+        # ui-dynamic: Designer의 QCheckBox를 런타임에 커스텀 토글로 교체. Designer 미지원 커스텀 위젯
         toggle = _ModeToggleSwitch(checkbox.parentWidget())
         toggle.setObjectName(checkbox.objectName())
         toggle.setToolTip(checkbox.toolTip())
@@ -494,6 +495,7 @@ class TxPanelView:
         # ui-override: Designer 미지원 -- QHeaderView.Stretch
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
+        # ui-dynamic: 프레임 테이블 아이템 런타임 생성
         for col, field in enumerate(FRAME_FIXED_FIELDS):
             item = table.item(0, col)
             if item is None:
@@ -548,7 +550,7 @@ class TxPanelView:
 
         # Font, stylesheet, editTriggers, scrollMode, header visibility,
         # row height, and stretchLastSection are set in .ui.
-        # Fix APPLY column width (per-column resize mode not representable in .ui)
+        # ui-override: Designer 미지원 — per-column QHeaderView.ResizeMode
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         table.horizontalHeader().setSectionResizeMode(APPLY_COL, QtWidgets.QHeaderView.Fixed)
         table.setColumnWidth(APPLY_COL, 30)
@@ -577,6 +579,7 @@ class TxPanelView:
             table.setItem(row, col, item)
         table.blockSignals(False)
 
+        # ui-dynamic: 프리셋 행 수가 런타임에 결정, 동적 생성 불가피
         btn = QtWidgets.QPushButton('>')
         btn.setFont(preset_font)
         btn.setMaximumWidth(28)
