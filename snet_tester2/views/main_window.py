@@ -91,29 +91,7 @@ PLOT_PANEL_OBJECTS = {
 }
 
 
-class RunningStats:
-    def __init__(self):
-        self.count = 0
-        self.mean = 0.0
-        self.m2 = 0.0
-        self.min = None
-        self.max = None
-
-    def add(self, value: float):
-        self.count += 1
-        if self.min is None or value < self.min:
-            self.min = value
-        if self.max is None or value > self.max:
-            self.max = value
-        delta = value - self.mean
-        self.mean += delta / self.count
-        delta2 = value - self.mean
-        self.m2 += delta * delta2
-
-    def stdev(self) -> Optional[float]:
-        if self.count < 2:
-            return None
-        return (self.m2 / (self.count - 1)) ** 0.5
+from ..state.statistics import RunningStats
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -419,6 +397,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.plot_view.set_run_state(False)
             if not self._last_error_message:
                 self.statusBar().showMessage('Worker stopped')
+            return
+
+        print(f'[MainWindow] Unhandled event: {type(event).__name__}')
 
     # --- Button callbacks ---
 

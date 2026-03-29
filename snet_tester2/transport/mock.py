@@ -186,20 +186,21 @@ class MockTransport:
         if not self._is_open:
             raise OSError("Mock: not open")
 
-        fault = self._faults.get(self._request_count)
-
-        # DISCONNECT: close transport before any processing
-        if fault == FaultKind.DISCONNECT:
-            self._is_open = False
-            self._request_count += 1
-            raise OSError("Mock: disconnected")
-
         # Parse outgoing frame(s)
         frames = self._parser.feed(data)
 
         for frame in frames:
+            fault = self._faults.get(self._request_count)
+
+            # DISCONNECT: close transport immediately
+            if fault == FaultKind.DISCONNECT:
+                self._is_open = False
+                self._request_count += 1
+                raise OSError("Mock: disconnected")
+
             response = self._generate_response(frame)
             if not response:
+                self._request_count += 1
                 continue
 
             # Apply fault to response bytes
@@ -207,7 +208,16 @@ class MockTransport:
             if response is not None:
                 self._rx_buffer.extend(response)
 
-        self._request_count += 1
+            self._request_count += 1
+
+        # If no frames parsed (empty/unparseable data), still count as a request
+        if not frames:
+            fault = self._faults.get(self._request_count)
+            if fault == FaultKind.DISCONNECT:
+                self._is_open = False
+                self._request_count += 1
+                raise OSError("Mock: disconnected")
+            self._request_count += 1
 
     def read(self, size: int) -> bytes:
         """Read up to *size* bytes from the mock receive buffer.

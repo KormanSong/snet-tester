@@ -314,6 +314,8 @@ class SerialWorker(threading.Thread):
         except OSError as exc:
             self._queue.put(ErrorEvent(message=f'[Serial Error] {exc}'))
         except Exception as exc:
+            import traceback
+            traceback.print_exc()
             self._queue.put(ErrorEvent(message=f'[Worker Error] {exc}'))
         finally:
             self._transport.close()

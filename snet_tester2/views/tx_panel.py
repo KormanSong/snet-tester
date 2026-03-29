@@ -729,7 +729,16 @@ class TxPanelView:
     # --- State display ---
 
     def show_validation_error(self, message: str):
-        pass
+        """Flash validation error on the SET button for 2 seconds."""
+        if self.setButton is not None:
+            original_text = self.setButton.text()
+            original_style = self.setButton.styleSheet()
+            self.setButton.setStyleSheet('QPushButton { background-color: #FFCDD2; color: #C62828; }')
+            self.setButton.setText(message[:20] if len(message) > 20 else message)
+            QtCore.QTimer.singleShot(2000, lambda: (
+                self.setButton.setText(original_text),
+                self.setButton.setStyleSheet(original_style),
+            ))
 
     def update_run_state(self, running: bool):
         self._running = running
