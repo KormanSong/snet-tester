@@ -23,6 +23,11 @@ def main(argv=None):
     configure_qt_environment()
 
     app = QtWidgets.QApplication(sys.argv if argv is None else argv)
+
+    # Force Fusion style to prevent Windows 11 dark mode from altering UI colors.
+    # Industrial test equipment must render identically regardless of OS theme.
+    app.setStyle('Fusion')
+
     window = MainWindow(mock_mode=args.mock, port=args.port, baud=args.baud)
     window.show()
     exit_code = app.exec()
