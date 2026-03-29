@@ -1,2 +1,7 @@
-# 모든 텍스트 파일을 LF로 통일
-* text=auto eol=lf
+# 텍스트 파일: LF 통일, UTF-8 without BOM
+* text=auto eol=lf working-tree-encoding=UTF-8
+
+# 바이너리 (줄 끝 변환 금지)
+*.png binary
+*.ico binary
+*.exe binary
