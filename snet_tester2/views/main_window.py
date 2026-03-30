@@ -31,7 +31,6 @@ from ..comm.worker import SerialWorker as V2SerialWorker
 from ..comm.commands import (
     ApplySetpointCommand,
     BrooksGetKpCommand,
-    ReadVarCommand,
     SetRunningCommand,
     WriteVarCommand,
 )
@@ -44,7 +43,6 @@ from ..comm.events import (
     RunStateEvent,
     SampleReceivedEvent,
     TxFrameEvent,
-    VarValueEvent,
     WorkerDoneEvent,
 )
 from ..config import WorkerConfig
@@ -174,8 +172,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tx_panel = TxPanelView(root=self.txPanel, debug_root=self.debugTabWidget, font=fixed_font)
         self.rx_panel = RxPanelView(root=self.rxPanel, debug_root=self.debugTabWidget, font=fixed_font)
-        self.rx_panel.set_full_open_value_raw(None)
-
         for name, child_type in PLOT_PANEL_OBJECTS.items():
             setattr(self, name, require_child(self.plotPanel, child_type, name))
 
@@ -191,8 +187,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rx_panel.adCommandCheckBox.toggled.connect(self._on_ad_command_toggled)
         if self.rx_panel.fullOpenControlCheckBox is not None:
             self.rx_panel.fullOpenControlCheckBox.toggled.connect(self._on_full_open_control_toggled)
-        if self.rx_panel.fullOpenApplyButton is not None:
-            self.rx_panel.fullOpenApplyButton.clicked.connect(self._on_full_open_apply_clicked)
         if self.tx_panel.modeToggle is not None:
             self.tx_panel.modeToggle.toggled.connect(self._on_mode_toggled)
         if self.tx_panel.btnLoadKp is not None:
@@ -223,7 +217,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 config=worker_config,
             )
             self._worker.start()
-            self._command_queue.put(ReadVarCommand(var_index=VarIndex.FULL_OPEN_VALUE))
             self.statusBar().showMessage('Mock mode enabled')
         else:
             # Auto-select CLI --port if listed (after panels are created)
@@ -363,11 +356,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.plot_view.note_rx_monitor(event.monitor)
             return
 
-        if isinstance(event, VarValueEvent):
-            if event.var_index == VarIndex.FULL_OPEN_VALUE:
-                self.rx_panel.set_full_open_value_raw(event.value)
-            return
-
         if isinstance(event, BrooksKpEvent):
             self.tx_panel.set_kp_values(event.channel, event.values)
             visible_count = self.tx_panel.visible_kp_field_count()
@@ -457,19 +445,6 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._command_queue.put(WriteVarCommand(var_index=VarIndex.FULL_OPEN_CTRL_FLAG, value=1 if checked else 0))
 
-    def _on_full_open_apply_clicked(self):
-        try:
-            raw_value = self.rx_panel.build_full_open_raw_value()
-        except ValueError as exc:
-            self.statusBar().showMessage(str(exc))
-            return
-
-        if self._worker is None:
-            self.statusBar().showMessage('Select COM port to connect')
-            return
-
-        self._command_queue.put(WriteVarCommand(var_index=VarIndex.FULL_OPEN_VALUE, value=raw_value))
-
     def _on_mode_toggled(self, checked: bool):
         """checked=True -> CAL mode, False -> RUN mode."""
         if self._worker is None:
@@ -551,8 +526,6 @@ class MainWindow(QtWidgets.QMainWindow):
             config=worker_config,
         )
         self._worker.start()
-        self.rx_panel.set_full_open_value_raw(None)
-        self._command_queue.put(ReadVarCommand(var_index=VarIndex.FULL_OPEN_VALUE))
         self.statusBar().showMessage(f'Connected: {port_name}')
 
     # --- Lifecycle ---

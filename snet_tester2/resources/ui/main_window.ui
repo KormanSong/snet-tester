@@ -87,10 +87,10 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
           <string notr="true">QFrame#graphStatusFrame { background-color: rgb(233, 240, 247); border: 1px solid rgb(205, 214, 222); border-radius: 0px; }</string>
          </property>
          <property name="frameShape">
-          <enum>QFrame::StyledPanel</enum>
+          <enum>QFrame::Shape::StyledPanel</enum>
          </property>
          <property name="frameShadow">
-          <enum>QFrame::Raised</enum>
+          <enum>QFrame::Shadow::Raised</enum>
          </property>
          <layout class="QGridLayout" name="graphStatusLayout">
           <property name="leftMargin">
@@ -112,7 +112,6 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
            <widget class="QLabel" name="plotRunCaptionLabel">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -135,7 +134,6 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
            <widget class="QLabel" name="plotRxStateCaptionLabel">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -158,7 +156,6 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
            <widget class="QLabel" name="plotSampleCaptionLabel">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -179,7 +176,7 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
              <string>50 ms</string>
             </property>
             <property name="alignment">
-             <set>Qt::AlignCenter</set>
+             <set>Qt::AlignmentFlag::AlignCenter</set>
             </property>
            </widget>
           </item>
@@ -187,7 +184,6 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
            <widget class="QLabel" name="plotWindowCaptionLabel">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -208,7 +204,7 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
              <string>10.0 s</string>
             </property>
             <property name="alignment">
-             <set>Qt::AlignCenter</set>
+             <set>Qt::AlignmentFlag::AlignCenter</set>
             </property>
            </widget>
           </item>
@@ -216,7 +212,6 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
            <widget class="QLabel" name="plotLastUpdateCaptionLabel">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -237,7 +232,7 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
              <string>--</string>
             </property>
             <property name="alignment">
-             <set>Qt::AlignCenter</set>
+             <set>Qt::AlignmentFlag::AlignCenter</set>
             </property>
            </widget>
           </item>
@@ -245,7 +240,6 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
            <widget class="QLabel" name="plotTimeoutCaptionLabel">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -266,7 +260,7 @@ QGroupBox#graphSettingsGroup::title { subcontrol-origin: margin; left: 8px; padd
              <string>0</string>
             </property>
             <property name="alignment">
-             <set>Qt::AlignCenter</set>
+             <set>Qt::AlignmentFlag::AlignCenter</set>
             </property>
            </widget>
           </item>
@@ -319,10 +313,10 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
           <string notr="true">QFrame#plotHost { background: transparent; border: none; }</string>
          </property>
          <property name="frameShape">
-          <enum>QFrame::NoFrame</enum>
+          <enum>QFrame::Shape::NoFrame</enum>
          </property>
          <property name="frameShadow">
-          <enum>QFrame::Plain</enum>
+          <enum>QFrame::Shadow::Plain</enum>
          </property>
          <layout class="QVBoxLayout" name="plotHostLayout">
           <property name="spacing">
@@ -346,7 +340,7 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
              <string notr="true">QFrame#ratioPlotFrame { background: #F2F3F5; border: 1px solid #B0B8C1; }</string>
             </property>
             <property name="frameShape">
-             <enum>QFrame::NoFrame</enum>
+             <enum>QFrame::Shape::NoFrame</enum>
             </property>
             <layout class="QVBoxLayout" name="ratioPlotLayout">
              <property name="spacing">
@@ -383,7 +377,7 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
              <string notr="true">QFrame#valvePlotFrame { background: #EDEEF1; border: 1px solid #B0B8C1; }</string>
             </property>
             <property name="frameShape">
-             <enum>QFrame::NoFrame</enum>
+             <enum>QFrame::Shape::NoFrame</enum>
             </property>
             <layout class="QVBoxLayout" name="valvePlotLayout">
              <property name="spacing">
@@ -452,7 +446,7 @@ QPushButton:hover { background: #E8EDF2; border-color: #555; }</string>
             <item row="0" column="0">
              <spacer name="legendSpacer">
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -1175,7 +1169,8 @@ QPushButton:pressed {
              </property>
              <property name="font">
               <font>
-               <weight>75</weight>
+               <family>Consolas</family>
+               <pointsize>10</pointsize>
                <bold>true</bold>
                <kerning>false</kerning>
               </font>
@@ -1313,7 +1308,7 @@ QPushButton:pressed {
            <item>
             <spacer name="txControlSpacer">
              <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+              <enum>Qt::Orientation::Horizontal</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -1398,7 +1393,7 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
                  <string>0</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                 </property>
                 <property name="placeholderText">
                  <string>CH1</string>
@@ -1434,7 +1429,7 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
                  <string>0</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                 </property>
                 <property name="placeholderText">
                  <string>CH2</string>
@@ -1470,7 +1465,7 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
                  <string>0</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                 </property>
                 <property name="placeholderText">
                  <string>CH3</string>
@@ -1506,7 +1501,7 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
                  <string>0</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                 </property>
                 <property name="placeholderText">
                  <string>CH4</string>
@@ -1542,7 +1537,7 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
                  <string>0</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                 </property>
                 <property name="placeholderText">
                  <string>CH5</string>
@@ -1578,7 +1573,7 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
                  <string>0</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                 </property>
                 <property name="placeholderText">
                  <string>CH6</string>
@@ -1636,19 +1631,19 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
                <string notr="true">QTableWidget::item { padding: 0px 2px; }</string>
               </property>
               <property name="horizontalScrollBarPolicy">
-               <enum>Qt::ScrollBarAlwaysOff</enum>
+               <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
               </property>
               <property name="editTriggers">
-               <set>QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed</set>
+               <set>QAbstractItemView::EditTrigger::DoubleClicked|QAbstractItemView::EditTrigger::EditKeyPressed</set>
               </property>
               <property name="selectionMode">
-               <enum>QAbstractItemView::SingleSelection</enum>
+               <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
               </property>
               <property name="selectionBehavior">
-               <enum>QAbstractItemView::SelectRows</enum>
+               <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
               </property>
               <property name="verticalScrollMode">
-               <enum>QAbstractItemView::ScrollPerPixel</enum>
+               <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
               </property>
               <property name="wordWrap">
                <bool>false</bool>
@@ -1665,10 +1660,10 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
               <attribute name="verticalHeaderVisible">
                <bool>false</bool>
               </attribute>
-              <attribute name="verticalHeaderDefaultSectionSize">
+              <attribute name="verticalHeaderMinimumSectionSize">
                <number>18</number>
               </attribute>
-              <attribute name="verticalHeaderMinimumSectionSize">
+              <attribute name="verticalHeaderDefaultSectionSize">
                <number>18</number>
               </attribute>
               <column>
@@ -1742,7 +1737,7 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
               <item>
                <spacer name="presetButtonSpacer">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -1841,67 +1836,9 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="fullOpenValueEdit">
-             <property name="minimumSize">
-              <size>
-               <width>70</width>
-               <height>22</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>90</width>
-               <height>24</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>0x1000 variable value</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-             <property name="placeholderText">
-              <string>--</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="fullOpenApplyButton">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>40</width>
-               <height>22</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>56</width>
-               <height>24</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>8</pointsize>
-              </font>
-             </property>
-             <property name="toolTip">
-              <string>Apply the current value to 0x1000</string>
-             </property>
-             <property name="text">
-              <string>설정</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <spacer name="horizontalSpacer_2">
              <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+              <enum>Qt::Orientation::Horizontal</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -1968,7 +1905,7 @@ QLineEdit::placeholder { color: #888; font-weight: bold; }</string>
             </font>
            </property>
            <property name="focusPolicy">
-            <enum>Qt::NoFocus</enum>
+            <enum>Qt::FocusPolicy::NoFocus</enum>
            </property>
            <property name="styleSheet">
             <string notr="true">QTableWidget {
@@ -1991,22 +1928,22 @@ QHeaderView::section {
 }</string>
            </property>
            <property name="frameShape">
-            <enum>QFrame::StyledPanel</enum>
+            <enum>QFrame::Shape::StyledPanel</enum>
            </property>
            <property name="frameShadow">
-            <enum>QFrame::Plain</enum>
+            <enum>QFrame::Shadow::Plain</enum>
            </property>
            <property name="verticalScrollBarPolicy">
-            <enum>Qt::ScrollBarAlwaysOff</enum>
+            <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
            </property>
            <property name="horizontalScrollBarPolicy">
-            <enum>Qt::ScrollBarAlwaysOff</enum>
+            <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
            </property>
            <property name="editTriggers">
-            <set>QAbstractItemView::NoEditTriggers</set>
+            <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
            </property>
            <property name="selectionMode">
-            <enum>QAbstractItemView::NoSelection</enum>
+            <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
            </property>
            <property name="showGrid">
             <bool>true</bool>
@@ -2026,10 +1963,10 @@ QHeaderView::section {
            <attribute name="horizontalHeaderStretchLastSection">
             <bool>false</bool>
            </attribute>
-           <attribute name="verticalHeaderDefaultSectionSize">
+           <attribute name="verticalHeaderMinimumSectionSize">
             <number>20</number>
            </attribute>
-           <attribute name="verticalHeaderMinimumSectionSize">
+           <attribute name="verticalHeaderDefaultSectionSize">
             <number>20</number>
            </attribute>
            <row>
@@ -2348,7 +2285,7 @@ QPushButton:checked { background: #DDEBFF; border-color: #4B84D9; font-weight: 6
          <item>
           <spacer name="relayChannelSpacer">
            <property name="orientation">
-            <enum>Qt::Horizontal</enum>
+            <enum>Qt::Orientation::Horizontal</enum>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
@@ -2407,6 +2344,7 @@ QPushButton:checked { background: #DDEBFF; border-color: #4B84D9; font-weight: 6
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -2414,7 +2352,7 @@ QPushButton:checked { background: #DDEBFF; border-color: #4B84D9; font-weight: 6
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2451,8 +2389,8 @@ QPushButton:checked { background: #DDEBFF; border-color: #4B84D9; font-weight: 6
                 </property>
                 <property name="font">
                  <font>
+                  <family>Consolas</family>
                   <pointsize>8</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -2485,8 +2423,8 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                 </property>
                 <property name="font">
                  <font>
+                  <family>Consolas</family>
                   <pointsize>8</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -2511,7 +2449,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>KI</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignCenter</set>
+               <set>Qt::AlignmentFlag::AlignCenter</set>
               </property>
              </widget>
             </item>
@@ -2521,7 +2459,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>30%</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2531,7 +2469,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>KD</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignCenter</set>
+               <set>Qt::AlignmentFlag::AlignCenter</set>
               </property>
              </widget>
             </item>
@@ -2557,6 +2495,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -2564,7 +2503,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2574,7 +2513,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>Val.4</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2584,7 +2523,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>100%</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2594,7 +2533,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>Val.0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2604,7 +2543,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>10%</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2641,8 +2580,8 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                 </property>
                 <property name="font">
                  <font>
+                  <family>Consolas</family>
                   <pointsize>8</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -2675,8 +2614,8 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                 </property>
                 <property name="font">
                  <font>
+                  <family>Consolas</family>
                   <pointsize>8</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -2704,7 +2643,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>KP</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignCenter</set>
+               <set>Qt::AlignmentFlag::AlignCenter</set>
               </property>
              </widget>
             </item>
@@ -2730,6 +2669,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -2737,7 +2677,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2763,6 +2703,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -2770,7 +2711,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2796,6 +2737,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -2803,7 +2745,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2829,6 +2771,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -2836,7 +2779,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2862,6 +2805,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -2869,7 +2813,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2895,6 +2839,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -2902,7 +2847,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -2939,8 +2884,8 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                 </property>
                 <property name="font">
                  <font>
+                  <family>Consolas</family>
                   <pointsize>8</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -2973,8 +2918,8 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                 </property>
                 <property name="font">
                  <font>
+                  <family>Consolas</family>
                   <pointsize>8</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -3015,6 +2960,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -3022,7 +2968,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3048,6 +2994,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -3055,7 +3002,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3081,6 +3028,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -3088,7 +3036,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3114,6 +3062,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -3121,7 +3070,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3147,6 +3096,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -3154,7 +3104,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3180,6 +3130,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -3187,7 +3138,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3213,6 +3164,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
               </property>
               <property name="font">
                <font>
+                <family>Consolas</family>
                 <pointsize>9</pointsize>
                </font>
               </property>
@@ -3220,17 +3172,17 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
             <item row="7" column="2">
              <spacer name="verticalSpacer_pid_matrix">
               <property name="orientation">
-               <enum>Qt::Vertical</enum>
+               <enum>Qt::Orientation::Vertical</enum>
               </property>
               <property name="sizeType">
-               <enum>QSizePolicy::Expanding</enum>
+               <enum>QSizePolicy::Policy::Expanding</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -3245,7 +3197,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
           <item>
            <spacer name="horizontalSpacer_pid">
             <property name="orientation">
-             <enum>Qt::Horizontal</enum>
+             <enum>Qt::Orientation::Horizontal</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -3263,7 +3215,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>ControlType</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3273,7 +3225,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3283,7 +3235,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>Anti Windup</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3293,7 +3245,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3303,7 +3255,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>Valve Init V</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3313,7 +3265,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3323,7 +3275,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>FS Gain</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3333,7 +3285,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3343,7 +3295,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>AD OffSet</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3353,7 +3305,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>0</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
               </property>
              </widget>
             </item>
@@ -3390,8 +3342,8 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                 </property>
                 <property name="font">
                  <font>
+                  <family>Consolas</family>
                   <pointsize>8</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -3424,8 +3376,8 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                 </property>
                 <property name="font">
                  <font>
+                  <family>Consolas</family>
                   <pointsize>8</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -3447,7 +3399,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
             <item row="7" column="1">
              <spacer name="verticalSpacer_ctrl">
               <property name="orientation">
-               <enum>Qt::Vertical</enum>
+               <enum>Qt::Orientation::Vertical</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -3463,7 +3415,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
                <string>제어변수</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignCenter</set>
+               <set>Qt::AlignmentFlag::AlignCenter</set>
               </property>
              </widget>
             </item>
@@ -3491,19 +3443,19 @@ QPushButton:pressed { background: #CCD4DC; }</string>
              </size>
             </property>
             <property name="focusPolicy">
-             <enum>Qt::NoFocus</enum>
+             <enum>Qt::FocusPolicy::NoFocus</enum>
             </property>
             <property name="verticalScrollBarPolicy">
-             <enum>Qt::ScrollBarAlwaysOff</enum>
+             <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
             </property>
             <property name="horizontalScrollBarPolicy">
-             <enum>Qt::ScrollBarAlwaysOff</enum>
+             <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
             </property>
             <property name="editTriggers">
-             <set>QAbstractItemView::NoEditTriggers</set>
+             <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
             </property>
             <property name="selectionMode">
-             <enum>QAbstractItemView::NoSelection</enum>
+             <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
             </property>
             <property name="wordWrap">
              <bool>false</bool>
@@ -3567,7 +3519,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
           <item>
            <widget class="QPlainTextEdit" name="txDataDump">
             <property name="lineWrapMode">
-             <enum>QPlainTextEdit::NoWrap</enum>
+             <enum>QPlainTextEdit::LineWrapMode::NoWrap</enum>
             </property>
             <property name="readOnly">
              <bool>true</bool>
@@ -3590,19 +3542,19 @@ QPushButton:pressed { background: #CCD4DC; }</string>
              </size>
             </property>
             <property name="focusPolicy">
-             <enum>Qt::NoFocus</enum>
+             <enum>Qt::FocusPolicy::NoFocus</enum>
             </property>
             <property name="verticalScrollBarPolicy">
-             <enum>Qt::ScrollBarAlwaysOff</enum>
+             <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
             </property>
             <property name="horizontalScrollBarPolicy">
-             <enum>Qt::ScrollBarAlwaysOff</enum>
+             <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
             </property>
             <property name="editTriggers">
-             <set>QAbstractItemView::NoEditTriggers</set>
+             <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
             </property>
             <property name="selectionMode">
-             <enum>QAbstractItemView::NoSelection</enum>
+             <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
             </property>
             <property name="wordWrap">
              <bool>false</bool>
@@ -3666,7 +3618,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
           <item>
            <widget class="QPlainTextEdit" name="rxDataDump">
             <property name="lineWrapMode">
-             <enum>QPlainTextEdit::NoWrap</enum>
+             <enum>QPlainTextEdit::LineWrapMode::NoWrap</enum>
             </property>
             <property name="readOnly">
              <bool>true</bool>
@@ -3687,7 +3639,7 @@ QPushButton:pressed { background: #CCD4DC; }</string>
      <x>0</x>
      <y>0</y>
      <width>1280</width>
-     <height>21</height>
+     <height>33</height>
     </rect>
    </property>
   </widget>

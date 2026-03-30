@@ -13,7 +13,6 @@ from ..protocol.codec import (
 )
 from ..protocol.constants import (
     FRAME_FIXED_FIELDS,
-    FULL_OPEN_VALUE_SCALE,
     HEX_DUMP_BYTES_PER_LINE,
     MAX_CHANNELS,
     PLACEHOLDER,
@@ -69,60 +68,15 @@ class RxPanelView:
         self.valveNoCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'valveNoCheckBox')
         self.adCommandCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'adCommandCheckBox')
         self.fullOpenControlCheckBox = find_optional_child(self._root, QtWidgets.QCheckBox, 'fullOpenControlCheckBox')
-        self.fullOpenValueEdit = find_optional_child(self._root, QtWidgets.QLineEdit, 'fullOpenValueEdit')
-        self.fullOpenApplyButton = find_optional_child(self._root, QtWidgets.QPushButton, 'fullOpenApplyButton')
 
         if self.valveNoCheckBox is not None:
             self.valveNoCheckBox.toggled.connect(self._on_valve_display_toggled)
 
         configure_plain_text_edit(self.rxDataDump, font)
-        self._configure_full_open_controls()
         self._configure_monitor_table()
         self._configure_frame_table()
         self.update_monitor(None, status='waiting')
         self.update_frame(None, status='waiting')
-
-    def _configure_full_open_controls(self):
-        if self.fullOpenValueEdit is not None:
-            validator = QtGui.QDoubleValidator(0.0, 9999.999, 3, self.fullOpenValueEdit)
-            validator.setNotation(QtGui.QDoubleValidator.StandardNotation)
-            self.fullOpenValueEdit.setValidator(validator)
-            # alignment, placeholderText, and toolTip are set in .ui
-
-        # fullOpenApplyButton toolTip is set in .ui
-
-    def _format_full_open_value(self, raw_value: int) -> str:
-        text = f'{raw_value / FULL_OPEN_VALUE_SCALE:.3f}'.rstrip('0').rstrip('.')
-        return text if '.' in text else f'{text}.0'
-
-    def set_full_open_value_raw(self, raw_value: Optional[int]):
-        if self.fullOpenValueEdit is None:
-            return
-
-        self.fullOpenValueEdit.blockSignals(True)
-        if raw_value is None:
-            self.fullOpenValueEdit.clear()
-        else:
-            self.fullOpenValueEdit.setText(self._format_full_open_value(raw_value))
-        self.fullOpenValueEdit.blockSignals(False)
-
-    def build_full_open_raw_value(self) -> int:
-        if self.fullOpenValueEdit is None:
-            raise ValueError('풀오픈 입력창을 찾을 수 없습니다.')
-
-        text = self.fullOpenValueEdit.text().strip()
-        if not text:
-            raise ValueError('풀오픈 값을 입력하세요.')
-
-        try:
-            value = float(text)
-        except ValueError as exc:
-            raise ValueError('풀오픈 값 형식이 올바르지 않습니다.') from exc
-
-        if value < 0.0:
-            raise ValueError('풀오픈 값은 0 이상이어야 합니다.')
-
-        return int(round(value * FULL_OPEN_VALUE_SCALE))
 
     def _configure_monitor_table(self):
         table = self.rxMonitorTable
