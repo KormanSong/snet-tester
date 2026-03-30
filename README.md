@@ -8,7 +8,7 @@ Works without hardware — just run with `--mock`.
 
 | Real-time graph | TX/RX Frame |
 |---|---|
-| ![Real-time graph](docs/screenshot_realtime_graph.png) | ![Frame view](docs/screenshot_frame_view.png) |
+| ![Real-time graph](docs/01_PID교정.png) | ![Frame view](02_장비검증.png) |
 
 ## Features
 
