@@ -22,6 +22,8 @@ GRAPH_REFRESH_S = 0.02
 GRAPH_X_WINDOW_S = 10.0
 GRAPH_PANEL_VALVE_HEIGHT = 120
 PLOT_STALE_THRESHOLD_S = max(0.25, SAMPLE_PERIOD_S * 5.0)
+RAMP_FRAC_RX = 1.0  # RX/Valve: 고객사 요청에 따른 표시용 보간 (full diagonal)
+RAMP_DURATION_RX_S = SAMPLE_PERIOD_S * RAMP_FRAC_RX
 LEFT_AXIS_WIDTH_PX = 46
 LEFT_TICK_TEXT_WIDTH_PX = 36
 PLOT_WIDGET_SIDE_MARGIN_PX = 0
@@ -68,6 +70,36 @@ def _patch_axis_bounding_rect(axis: pg.AxisItem) -> None:
         return rect
 
     axis.boundingRect = _patched_boundingRect
+
+
+def _add_grid_lines(
+    plot: pg.PlotItem,
+    y_ticks: list[float],
+    x_ticks: list[float],
+    color: QtGui.QColor,
+    dash_pattern: list[float],
+) -> list[pg.InfiniteLine]:
+    """Add grid lines as InfiniteLine items directly on the plot.
+
+    Bypasses pyqtgraph's built-in showGrid (which renders solid lines via
+    QPicture cache) and draws grid lines with explicit pen control.
+    Returns the list of created lines for future reference or removal.
+    """
+    # ui-dynamic: InfiniteLine 격자 -- pyqtgraph showGrid 대체
+    grid_pen = pg.mkPen(color=color, width=1.0, style=QtCore.Qt.PenStyle.CustomDashLine)
+    grid_pen.setDashPattern(dash_pattern)
+    lines: list[pg.InfiniteLine] = []
+    for y_val in y_ticks:
+        line = pg.InfiniteLine(pos=y_val, angle=0, pen=grid_pen)
+        line.setZValue(-100)  # behind data curves
+        plot.addItem(line)
+        lines.append(line)
+    for x_val in x_ticks:
+        line = pg.InfiniteLine(pos=x_val, angle=90, pen=grid_pen)
+        line.setZValue(-100)
+        plot.addItem(line)
+        lines.append(line)
+    return lines
 
 
 CHANNEL_COLORS = (
@@ -158,8 +190,10 @@ class PlotTheme:
         self.axis_text = (17, 17, 17)             # #111111 near-black
         self.valve_axis = (58, 63, 69)            # #3A3F45 dark gray
         self.valve_axis_text = (34, 38, 44)       # #22262C
-        self.grid = (196, 202, 208)               # #C4CAD0 subtle on white
-        self.valve_grid = (211, 216, 222)          # #D3D8DE lighter
+        self.grid_major = (168, 176, 184)            # #A8B0B8 major grid (10%)
+        self.grid_minor = (206, 211, 216)            # #CED3D8 minor grid (2%)
+        self.grid = (196, 202, 208)                  # #C4CAD0 (legacy / valve major)
+        self.valve_grid = (211, 216, 222)            # #D3D8DE lighter
         self.panel = (201, 206, 212)              # #C9CED4 gray surround
 
     def qcolor(self, rgb, alpha: int = 255) -> QtGui.QColor:
@@ -290,7 +324,7 @@ class PlotView:
         pg.setConfigOptions(antialias=False, background=self._theme.qcolor(self._theme.background))
 
         for ch in range(MAX_CHANNELS):
-            rx_curve = self._ratio_plot.plot(self._x, self._y_rx[ch], pen=self._theme.rx_live_pen(ch), connect='finite', stepMode='left')
+            rx_curve = self._ratio_plot.plot(self._x, self._y_rx[ch], pen=self._theme.rx_live_pen(ch), connect='finite')
             self._curve_rx.append(rx_curve)
         # TX (setpoint) drawn after RX so step-lines render on top
         for ch in range(MAX_CHANNELS):
@@ -310,7 +344,7 @@ class PlotView:
         self._valve_plot.setXLink(self._ratio_plot)
         self._synchronize_axis_geometry()
         for ch in range(MAX_CHANNELS):
-            valve_curve = self._valve_plot.plot(self._x, self._y_valve[ch], pen=self._theme.valve_pen(ch), connect='finite', stepMode='left')
+            valve_curve = self._valve_plot.plot(self._x, self._y_valve[ch], pen=self._theme.valve_pen(ch), connect='finite')
             self._curve_valve.append(valve_curve)
 
         # Frames and labels are defined in .ui; just add plot widgets into them
@@ -355,13 +389,27 @@ class PlotView:
         right_axis.setWidth(LEFT_AXIS_WIDTH_PX)
         right_axis.setStyle(showValues=False)
         right_axis.setPen(pg.mkPen(color=self._theme.qcolor(self._theme.axis), width=1.0))
-        plot.showGrid(x=True, y=True, alpha=0.25)
+        # ui-dynamic: 2단 격자 -- major(10%), minor(2%)
+        _add_grid_lines(
+            plot,
+            y_ticks=[float(v) for v in range(0, 101, 10)],
+            x_ticks=[float(v) for v in range(0, 11, 2)],
+            color=self._theme.qcolor(self._theme.grid_major),
+            dash_pattern=[2, 4],
+        )
+        _add_grid_lines(
+            plot,
+            y_ticks=[float(v) for v in range(0, 101, 2) if v % 10 != 0],
+            x_ticks=[],
+            color=self._theme.qcolor(self._theme.grid_minor),
+            dash_pattern=[1, 4],
+        )
         plot.setXRange(0.0, GRAPH_X_WINDOW_S, padding=0.0)
-        plot.setYRange(0.0, 100.0, padding=0.0)
+        plot.setYRange(-5.0, 105.0, padding=0.0)
         plot.disableAutoRange()
         plot.setMouseEnabled(x=False, y=False)
         plot.hideButtons()
-        # Fixed ticks -- single level so all grid lines have uniform weight
+        # Tick labels at 20% intervals (major grid is denser than labels)
         plot.getAxis('left').setTicks([
             [(v, str(int(v))) for v in range(0, 101, 20)],
         ])
@@ -382,9 +430,16 @@ class PlotView:
         right_axis.setWidth(LEFT_AXIS_WIDTH_PX)
         right_axis.setStyle(showValues=False)
         right_axis.setPen(pg.mkPen(color=self._theme.qcolor(self._theme.valve_axis), width=1.0))
-        plot.showGrid(x=True, y=True, alpha=0.15)
+        # ui-dynamic: valve 격자 -- major(1V)
+        _add_grid_lines(
+            plot,
+            y_ticks=[float(v) for v in range(0, 6)],
+            x_ticks=[float(v) for v in range(0, 11, 2)],
+            color=self._theme.qcolor(self._theme.grid_major),
+            dash_pattern=[2, 4],
+        )
         plot.setXRange(0.0, GRAPH_X_WINDOW_S, padding=0.0)
-        plot.setYRange(0.0, 5.0, padding=0.0)
+        plot.setYRange(-0.25, 5.25, padding=0.0)
         plot.disableAutoRange()
         plot.setMouseEnabled(x=False, y=False)
         plot.hideButtons()
@@ -565,11 +620,17 @@ class PlotView:
             self._set_rx_state('STALE', 'warn')
             self._update_summary_from_payload(self._applied_payload, self._last_rx_monitor, rx_stale=True)
 
-    def _build_display_data(self, y_buf: np.ndarray, ch: int):
-        """Return (x_display, y_display) extending last value to current time.
+    def _build_display_data(self, y_buf: np.ndarray, ch: int, *, step: bool = False):
+        """Return (x_display, y_display) with leading edge extension.
 
-        Returns view/slice of original arrays when no extension is needed,
-        or a new small array (n+1 elements) when a leading edge is appended.
+        When *step* is True (TX curves):
+            Raw data + leading edge only (n+1 points).  pyqtgraph's
+            ``stepMode='left'`` handles the step rendering, so no hold+ramp
+            expansion is needed.
+
+        When *step* is False (RX/Valve curves, default):
+            Hold+ramp expansion inserts hold end-points before each sample,
+            creating a short diagonal ramp instead of a vertical step.
         """
         n = self._write_index          # valid points: indices 0 .. n-1
         has_data = self._has_started and n > 0
@@ -581,16 +642,53 @@ class PlotView:
         if np.isnan(last_val):
             return self._x[:n], y_buf[ch, :n]
 
+        x_raw = self._x[:n]
+        y_raw = y_buf[ch, :n]
+
+        if step:
+            # TX: raw data only, stepMode='left' handles step rendering
+            # -- leading edge extension --
+            elapsed = time.perf_counter() - self._last_add_point_time
+            frac = min(max(elapsed / SAMPLE_PERIOD_S, 0.0), 1.0)
+            leading_x = x_raw[-1] + frac * SAMPLE_PERIOD_S
+            x_disp = np.empty(n + 1, dtype=np.float32)
+            y_disp = np.empty(n + 1, dtype=np.float32)
+            x_disp[:n] = x_raw
+            x_disp[n] = leading_x
+            y_disp[:n] = y_raw
+            y_disp[n] = last_val
+            return x_disp, y_disp
+
+        # -- hold+ramp expansion for RX/Valve (replaces stepMode='left') --
+        # N original points -> up to 2N expanded (hold end-point + original)
+        x_exp = np.empty(n * 2, dtype=np.float32)
+        y_exp = np.empty(n * 2, dtype=np.float32)
+
+        x_exp[0] = x_raw[0]
+        y_exp[0] = y_raw[0]
+        k = 1
+
+        for i in range(1, n):
+            # hold end-point: previous value held until ramp start
+            x_exp[k] = x_raw[i] - RAMP_DURATION_RX_S
+            y_exp[k] = y_raw[i - 1]
+            k += 1
+            # ramp end-point (= original sample): new value
+            x_exp[k] = x_raw[i]
+            y_exp[k] = y_raw[i]
+            k += 1
+
+        # -- leading edge extension (preserved from ECR) --
         elapsed = time.perf_counter() - self._last_add_point_time
         frac = min(max(elapsed / SAMPLE_PERIOD_S, 0.0), 1.0)
-        leading_x = self._x[n - 1] + frac * SAMPLE_PERIOD_S
+        leading_x = x_raw[-1] + frac * SAMPLE_PERIOD_S
 
-        x_disp = np.empty(n + 1, dtype=np.float32)
-        y_disp = np.empty(n + 1, dtype=np.float32)
-        x_disp[:n] = self._x[:n]
-        x_disp[n] = leading_x
-        y_disp[:n] = y_buf[ch, :n]
-        y_disp[n] = last_val
+        x_disp = np.empty(k + 1, dtype=np.float32)
+        y_disp = np.empty(k + 1, dtype=np.float32)
+        x_disp[:k] = x_exp[:k]
+        x_disp[k] = leading_x
+        y_disp[:k] = y_exp[:k]
+        y_disp[k] = last_val
         return x_disp, y_disp
 
     def refresh(self, force: bool = False):
@@ -601,12 +699,12 @@ class PlotView:
 
         for ch in range(MAX_CHANNELS):
             if self._curve_tx[ch].isVisible():
-                x_d, y_d = self._build_display_data(self._y_tx, ch)
+                x_d, y_d = self._build_display_data(self._y_tx, ch, step=True)
                 self._curve_tx[ch].setData(x_d, y_d, connect='finite', stepMode='left')
             if self._curve_rx[ch].isVisible():
                 x_d, y_d = self._build_display_data(self._y_rx, ch)
-                self._curve_rx[ch].setData(x_d, y_d, connect='finite', stepMode='left')
+                self._curve_rx[ch].setData(x_d, y_d, connect='finite')
             if self._curve_valve[ch].isVisible():
                 x_d, y_d = self._build_display_data(self._y_valve, ch)
-                self._curve_valve[ch].setData(x_d, y_d, connect='finite', stepMode='left')
+                self._curve_valve[ch].setData(x_d, y_d, connect='finite')
         self._last_refresh = now
