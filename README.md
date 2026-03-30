@@ -6,9 +6,9 @@ Works without hardware — just run with `--mock`.
 
 ## Screenshots
 
-| Real-time graph | TX/RX Frame |
+| PID Calibration | Flow Ratio Control |
 |---|---|
-| ![Real-time graph](docs/01_PID교정.png) | ![Frame view](02_장비검증.png) |
+| ![Real-time graph](docs/01_PID교정.png) | ![Frame view](docs/02_장비검증.png) |
 
 ## Features
 
