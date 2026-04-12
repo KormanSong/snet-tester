@@ -1,0 +1,104 @@
+﻿{
+  "run_condition": {
+    "mock_mode": false,
+    "port": "COM1",
+    "channels": 5,
+    "ratios": [
+      20.0,
+      40.0,
+      60.0,
+      80.0,
+      100.0
+    ],
+    "sample_period_s": 0.032,
+    "render_fps_cap": 60,
+    "duration_s": 30.5,
+    "diag_mode": "normal"
+  },
+  "metrics": {
+    "avg_fps": 58.726516617173935,
+    "low_1pct_fps": 39.27380663735767,
+    "drop_pct": 30.676195711929633,
+    "drop_below_40fps_pct": 0.6047278724573941,
+    "drop_below_30fps_pct": 0.0,
+    "drop_below_40fps_threshold_ms": 25.0,
+    "drop_below_30fps_threshold_ms": 33.333333333333336,
+    "drop_threshold_ms": 17.5,
+    "p999_ms": 27.909800002817065,
+    "p9999_ms": 31.43499995348975,
+    "worst_ms": 31.43499995348975,
+    "frame_samples": 1819
+  },
+  "render_metrics": {
+    "avg_fps": 58.726516617173935,
+    "low_1pct_fps": 39.27380663735767,
+    "drop_pct": 30.676195711929633,
+    "drop_below_40fps_pct": 0.6047278724573941,
+    "drop_below_30fps_pct": 0.0,
+    "drop_below_40fps_threshold_ms": 25.0,
+    "drop_below_30fps_threshold_ms": 33.333333333333336,
+    "drop_threshold_ms": 17.5,
+    "p999_ms": 27.909800002817065,
+    "p9999_ms": 31.43499995348975,
+    "worst_ms": 31.43499995348975,
+    "frame_samples": 1819
+  },
+  "data_frame_metrics": {
+    "avg_fps": 29.81605249686342,
+    "low_1pct_fps": 18.374618032005245,
+    "drop_pct": 79.30660888407367,
+    "drop_below_40fps_pct": 84.8320693391116,
+    "drop_below_30fps_pct": 71.61430119176599,
+    "drop_below_40fps_threshold_ms": 25.0,
+    "drop_below_30fps_threshold_ms": 33.333333333333336,
+    "drop_threshold_ms": 32.5,
+    "p999_ms": 66.1553000099957,
+    "p9999_ms": 66.1553000099957,
+    "worst_ms": 66.1553000099957,
+    "frame_samples": 923
+  },
+  "setdata_counts": {
+    "tx": [
+      924,
+      924,
+      924,
+      924,
+      924,
+      0
+    ],
+    "rx": [
+      924,
+      924,
+      924,
+      924,
+      924,
+      0
+    ],
+    "valve": [
+      397,
+      397,
+      397,
+      397,
+      397,
+      0
+    ]
+  },
+  "channel_sync_skew": {
+    "tx": 0,
+    "rx": 0,
+    "valve": 0
+  },
+  "load_shed_counters": {
+    "tx_deferred": 0.0,
+    "tx_dropped": 0.0,
+    "tx_rendered": 0.0,
+    "tx_force_immediate": 0.0,
+    "tx_render_cost_ema_ms": 0.0,
+    "valve_deferred": 462.0,
+    "valve_dropped": 65.0,
+    "valve_rendered": 397.0,
+    "valve_render_cost_ema_ms": 0.38939247611735484
+  },
+  "tx_dirty_counts": null,
+  "tx_skip_ratio_pct_total": null
+}

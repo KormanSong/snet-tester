@@ -1,20 +1,19 @@
-"""Tests for snet_tester2 PlotView: leading edge, hold+ramp, wrap, throttle, grid style."""
+"""Tests for snet_tester2 PlotView: raw rolling samples and batched redraw."""
 
-import time
 from unittest.mock import patch
 
 import numpy as np
 import pyqtgraph as pg
 import pytest
 from PySide6 import QtCore
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton
-from PySide6.QtGui import QFont, QPen
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QApplication, QPushButton, QVBoxLayout, QWidget
 
 from snet_tester2.protocol.codec import build_io_payload_model
-from snet_tester2.protocol.constants import MAX_CHANNELS, SAMPLE_PERIOD_S
-from snet_tester2.protocol.convert import ratio_percent_to_raw
+from snet_tester2.protocol.constants import MAX_CHANNELS
+from snet_tester2.protocol.convert import ratio_percent_to_raw, valve_raw_to_display
 from snet_tester2.protocol.types import SnetChannelMonitor, SnetMonitorSnapshot
-from snet_tester2.views.plot_view import GRAPH_REFRESH_S, RAMP_FRAC_RX, PlotView
+from snet_tester2.views.plot_view import PlotView, TX_RENDER_INTERVAL
 
 
 @pytest.fixture(scope="module")
@@ -28,219 +27,167 @@ def _make_monitor(ratios: list[float], valve_raws: list[int] | None = None) -> S
         valve_raws = [0] * len(ratios)
     channels = tuple(
         SnetChannelMonitor(
-            ad_raw=0, flow_raw=0,
-            ratio_raw=ratio_percent_to_raw(r),
-            valve_raw=v,
+            ad_raw=0,
+            flow_raw=0,
+            ratio_raw=ratio_percent_to_raw(ratio),
+            valve_raw=valve_raw,
         )
-        for r, v in zip(ratios, valve_raws)
+        for ratio, valve_raw in zip(ratios, valve_raws)
     )
     return SnetMonitorSnapshot(
-        status=0, mode=0, pressure_raw=0, temperature_raw=0,
-        channel_count=len(channels), channels=channels,
+        status=0,
+        mode=0,
+        pressure_raw=0,
+        temperature_raw=0,
+        channel_count=len(channels),
+        channels=channels,
     )
 
 
 def _make_plot_view(qapp) -> PlotView:
-    """Create a PlotView with minimal real Qt widgets."""
     root = QWidget()
     host = QWidget()
     host.setLayout(QVBoxLayout())
     toggle_buttons = {}
     for ch in range(MAX_CHANNELS):
-        for kind in ('tx', 'rx'):
+        for kind in ("tx", "rx"):
             btn = QPushButton()
             btn.setCheckable(True)
             btn.setChecked(True)
             toggle_buttons[(ch, kind)] = btn
-    pv = PlotView(root, host, toggle_buttons, QFont())
-    return pv
+    return PlotView(root, host, toggle_buttons, QFont())
 
 
-# -- Test 1: Leading edge advances between samples --
-
-def test_leading_edge_advances(qapp):
+def test_first_sample_is_visible_immediately(qapp):
     pv = _make_plot_view(qapp)
-    payload = build_io_payload_model(1, [50.0])
-    monitor = _make_monitor([50.0])
 
-    t0 = 1000.0
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t0):
-        pv.add_point(payload, monitor)
+    pv.add_point(build_io_payload_model(1, [42.0]), _make_monitor([42.0]))
 
-    # First call: shortly after sample
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t0 + 0.01):
-        x1, y1 = pv._build_display_data(pv._y_rx, 0)
-
-    # Second call: later
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t0 + 0.03):
-        x2, y2 = pv._build_display_data(pv._y_rx, 0)
-
-    assert len(x1) == pv._write_index + 1, "should have data + 1 leading edge point"
-    assert len(y1) == len(x1)
-    assert x2[-1] > x1[-1], "leading edge x should advance with time"
-    assert y1[-1] == pytest.approx(50.0, abs=0.1), "leading edge y extends last value"
-    assert y2[-1] == pytest.approx(50.0, abs=0.1)
+    x, y = pv._build_display_data(pv._y_rx, 0)
+    assert len(x) == 1
+    assert y[0] == pytest.approx(42.0, abs=0.1)
 
 
-# -- Test 2: TX step / RX+Valve ramp separation in setData --
+def test_progressive_fill_uses_raw_arrival_order(qapp):
+    pv = _make_plot_view(qapp)
+    values = [10.0, 20.0, 35.0]
 
-def test_tx_step_rx_ramp_in_set_data(qapp):
-    """TX curves use stepMode='left'; RX/Valve curves do not (hold+ramp)."""
+    for value in values:
+        pv.add_point(build_io_payload_model(1, [value]), _make_monitor([value]))
+
+    x, y = pv._build_display_data(pv._y_rx, 0)
+    assert len(x) == len(values)
+    assert list(y) == pytest.approx(values, abs=0.1)
+
+
+def test_wrap_clears_window_and_restarts_from_new_cycle(qapp):
+    pv = _make_plot_view(qapp)
+    for value in range(pv._point_count):
+        ratio = value * 0.25
+        pv.add_point(build_io_payload_model(1, [ratio]), _make_monitor([ratio]))
+
+    x_full, y_full = pv._build_display_data(pv._y_rx, 0)
+    assert len(x_full) == pv._point_count
+    assert y_full[0] == pytest.approx(0.0, abs=0.1)
+    assert y_full[-1] == pytest.approx((pv._point_count - 1) * 0.25, abs=0.1)
+
+    pv.add_point(build_io_payload_model(1, [99.0]), _make_monitor([99.0]))
+
+    x, y = pv._build_display_data(pv._y_rx, 0)
+    assert len(x) == 1
+    assert y[0] == pytest.approx(99.0, abs=0.1)
+
+
+def test_tx_step_rx_and_valve_refresh_use_expected_curve_modes(qapp):
     pv = _make_plot_view(qapp)
     payload = build_io_payload_model(1, [30.0])
-    monitor = _make_monitor([30.0])
+    monitor = _make_monitor([30.0], [1000])
+    pv.note_rx_monitor(monitor)
     pv.add_point(payload, monitor)
+    pv.set_valve_plot_visible(True)
 
     tx_calls, rx_calls, valve_calls = [], [], []
 
-    def make_capture(target_list):
-        def capture(*args, **kwargs):
-            target_list.append(kwargs)
-        return capture
+    def capture(target):
+        def inner(*args, **kwargs):
+            target.append(kwargs)
+        return inner
 
-    for ch_curves, target in ((pv._curve_tx, tx_calls), (pv._curve_rx, rx_calls), (pv._curve_valve, valve_calls)):
-        for curve in ch_curves:
-            if curve.isVisible():
-                curve.setData = make_capture(target)
+    for curve in pv._curve_tx:
+        if curve.isVisible():
+            curve.setData = capture(tx_calls)
+    for curve in pv._curve_rx:
+        if curve.isVisible():
+            curve.setData = capture(rx_calls)
+    for curve in pv._curve_valve:
+        if curve.isVisible():
+            curve.setData = capture(valve_calls)
 
     pv.refresh(force=True)
 
-    # TX: stepMode='left' must be present
-    assert len(tx_calls) > 0, "TX curves should have been updated"
-    for kw in tx_calls:
-        assert kw.get('stepMode') == 'left', f"TX should have stepMode='left': {kw}"
-        assert kw.get('connect') == 'finite', f"TX connect='finite' missing: {kw}"
+    assert tx_calls
+    for kwargs in tx_calls:
+        assert kwargs.get("stepMode") == "left"
+        assert kwargs.get("connect") == "finite"
 
-    # RX: no stepMode
-    assert len(rx_calls) > 0, "RX curves should have been updated"
-    for kw in rx_calls:
-        assert 'stepMode' not in kw, f"RX should not have stepMode: {kw}"
-        assert kw.get('connect') == 'finite', f"RX connect='finite' missing: {kw}"
+    assert rx_calls
+    for kwargs in rx_calls:
+        assert kwargs.get("connect") == "finite"
+        assert "stepMode" not in kwargs
 
-    # Valve: no stepMode
-    assert len(valve_calls) > 0, "Valve curves should have been updated"
-    for kw in valve_calls:
-        assert 'stepMode' not in kw, f"Valve should not have stepMode: {kw}"
-        assert kw.get('connect') == 'finite', f"Valve connect='finite' missing: {kw}"
+    assert valve_calls
+    for kwargs in valve_calls:
+        assert kwargs.get("connect") == "finite"
+        assert "stepMode" not in kwargs
 
 
-# -- Test 2b: Ramp points inserted between differing values --
-
-def test_ramp_points_inserted(qapp):
+def test_rx_and_valve_use_raw_samples_without_interpolation(qapp):
     pv = _make_plot_view(qapp)
-    payload1 = build_io_payload_model(1, [50.0])
-    monitor1 = _make_monitor([50.0])
-    payload2 = build_io_payload_model(1, [70.0])
-    monitor2 = _make_monitor([70.0])
+    ratios = [50.0, 70.0]
+    valve_raws = [1000, 2000]
 
-    t0 = 1000.0
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t0):
-        pv.add_point(payload1, monitor1)
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t0 + 0.05):
-        pv.add_point(payload2, monitor2)
+    for ratio, valve_raw in zip(ratios, valve_raws):
+        pv.add_point(build_io_payload_model(1, [ratio]), _make_monitor([ratio], [valve_raw]))
 
-    # _write_index == 2, so 2 original points -> 3 expanded + 1 leading edge = 4
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t0 + 0.06):
-        x, y = pv._build_display_data(pv._y_rx, 0)
+    x_rx, y_rx = pv._build_display_data(pv._y_rx, 0)
+    x_valve, y_valve = pv._build_display_data(pv._y_valve, 0)
 
-    # Expected: (x0, 50), (x1 - ramp_d, 50), (x1, 70), (leading_x, 70)
-    assert len(x) == 4, f"expected 4 points (2 orig + 1 hold + 1 lead), got {len(x)}"
-    # Point 0: first sample
-    assert y[0] == pytest.approx(50.0, abs=0.1)
-    # Point 1: hold end-point (previous value held)
-    assert y[1] == pytest.approx(50.0, abs=0.1)
-    ramp_duration = SAMPLE_PERIOD_S * RAMP_FRAC_RX
-    assert x[1] == pytest.approx(x[2] - ramp_duration, abs=1e-4)
-    # Point 2: ramp end = new value
-    assert y[2] == pytest.approx(70.0, abs=0.1)
-    # Point 3: leading edge (extends last value)
-    assert y[3] == pytest.approx(70.0, abs=0.1)
-    assert x[3] > x[2], "leading edge should extend beyond last sample"
+    assert len(x_rx) == 2
+    assert len(x_valve) == 2
+    assert list(y_rx) == pytest.approx(ratios, abs=0.1)
+    assert list(y_valve) == pytest.approx(
+        [valve_raw_to_display(value) for value in valve_raws],
+        abs=0.001,
+    )
 
 
-# -- Test 2c: TX step mode returns raw + leading edge, no hold points --
-
-def test_tx_step_no_ramp_expansion(qapp):
-    """TX step mode: _build_display_data(step=True) returns raw + leading edge, no hold points."""
+def test_inactive_channel_stays_nan_without_hiding_graph(qapp):
     pv = _make_plot_view(qapp)
-    payload1 = build_io_payload_model(1, [50.0])
-    monitor1 = _make_monitor([50.0])
-    payload2 = build_io_payload_model(1, [70.0])
-    monitor2 = _make_monitor([70.0])
+    pv.add_point(build_io_payload_model(1, [25.0]), _make_monitor([25.0]))
 
-    t0 = 1000.0
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t0):
-        pv.add_point(payload1, monitor1)
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t0 + 0.05):
-        pv.add_point(payload2, monitor2)
-
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t0 + 0.06):
-        x, y = pv._build_display_data(pv._y_tx, 0, step=True)
-
-    # 2 raw points + 1 leading edge = 3 (no hold point inserted)
-    assert len(x) == 3, f"expected 3 points (2 raw + 1 lead), got {len(x)}"
-    assert y[0] == pytest.approx(50.0, abs=0.1)
-    assert y[1] == pytest.approx(70.0, abs=0.1)
-    assert y[2] == pytest.approx(70.0, abs=0.1)  # leading edge
-    assert x[2] > x[1], "leading edge should extend beyond last sample"
-
-
-# -- Test 3: Wrap boundary isolation --
-
-def test_wrap_boundary_no_cross_cycle(qapp):
-    pv = _make_plot_view(qapp)
-    payload = build_io_payload_model(1, [40.0])
-    monitor = _make_monitor([40.0])
-
-    # Fill buffer completely: last add_point writes at index _point_count-1,
-    # then _write_index wraps to 0.  Buffer is NOT cleared until the NEXT add_point.
-    for _ in range(pv._point_count):
-        pv.add_point(payload, monitor)
-
-    assert pv._write_index == 0
-    assert pv._has_started is True
-
-    # _write_index == 0 → no leading edge, return full arrays unchanged
-    x, y = pv._build_display_data(pv._y_rx, 0)
-    assert len(x) == pv._point_count
-    assert len(x) == len(pv._x)
-
-    # Now add one more point (triggers clear + write at index 0)
-    pv.add_point(payload, monitor)
-    assert pv._write_index == 1
-
-    x2, y2 = pv._build_display_data(pv._y_rx, 0)
-    assert len(x2) == 2, "1 data point + 1 leading edge after wrap"
-    assert x2[0] == pytest.approx(0.0), "first point at x=0"
-
-
-# -- Test 4: NaN channel skips leading edge --
-
-def test_nan_channel_no_leading_edge(qapp):
-    pv = _make_plot_view(qapp)
-    # Add a point with 1 active channel (ch0 has data, ch1..5 are NaN)
-    payload = build_io_payload_model(1, [25.0])
-    monitor = _make_monitor([25.0])
-    pv.add_point(payload, monitor)
-
-    n = pv._write_index  # should be 1
-
-    # Channel 0 has data -> leading edge appended
     x0, y0 = pv._build_display_data(pv._y_rx, 0)
-    assert len(x0) == n + 1
-
-    # Channel 1 has NaN -> no leading edge
     x1, y1 = pv._build_display_data(pv._y_rx, 1)
-    assert len(x1) == n, "NaN channel should not get leading edge"
+
+    assert len(x0) == 1
+    assert y0[0] == pytest.approx(25.0, abs=0.1)
+    assert len(x1) == 1
+    assert np.isnan(y1[0])
 
 
-# -- Test 5: Refresh throttle respects GRAPH_REFRESH_S --
-
-def test_refresh_throttle(qapp):
+def test_timeout_sample_does_not_hide_existing_rx_curves(qapp):
     pv = _make_plot_view(qapp)
-    payload = build_io_payload_model(1, [10.0])
-    monitor = _make_monitor([10.0])
-    pv.add_point(payload, monitor)
+    pv.note_rx_monitor(_make_monitor([25.0]))
+
+    pv.add_point(build_io_payload_model(1, [25.0]), None)
+
+    assert pv._active_rx_count == 1
+    assert pv._curve_rx[0].isVisible() is True
+
+
+def test_refresh_skips_when_no_new_sample(qapp):
+    pv = _make_plot_view(qapp)
+    pv.note_rx_monitor(_make_monitor([10.0]))
+    pv.add_point(build_io_payload_model(1, [10.0]), _make_monitor([10.0]))
 
     call_count = 0
     original_set_data = pv._curve_rx[0].setData
@@ -253,66 +200,291 @@ def test_refresh_throttle(qapp):
     pv._curve_rx[0].setData = counting_set_data
 
     t = 2000.0
-    # First refresh: should trigger
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t):
+    with patch("snet_tester2.views.plot_view.time.perf_counter", return_value=t):
         pv.refresh()
     assert call_count == 1
 
-    # Second refresh within throttle window: should skip
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t + 0.005):
+    with patch("snet_tester2.views.plot_view.time.perf_counter", return_value=t + 0.005):
         pv.refresh()
-    assert call_count == 1, "should be throttled"
+    assert call_count == 1
 
-    # Third refresh after throttle window: should trigger
-    with patch('snet_tester2.views.plot_view.time.perf_counter', return_value=t + GRAPH_REFRESH_S + 0.001):
+    with patch("snet_tester2.views.plot_view.time.perf_counter", return_value=t + 0.010):
         pv.refresh()
-    assert call_count == 2, "should refresh after throttle period"
+    assert call_count == 1
+
+    pv.add_point(build_io_payload_model(1, [999.0]), _make_monitor([999.0]))
+    # With timer-only pacing, new sample should render even on a very short delta.
+    with patch("snet_tester2.views.plot_view.time.perf_counter", return_value=t + 0.011):
+        pv.refresh()
+    assert call_count == 2
 
 
-# -- Test 6: Y-axis padding (ratio -5~105, valve -0.25~5.25) --
+def test_atomic_commit_updates_all_visible_channels_in_single_refresh(qapp):
+    pv = _make_plot_view(qapp)
+    ratios = [10.0, 20.0, 30.0, 40.0, 50.0]
+    payload = build_io_payload_model(5, ratios)
+    monitor = _make_monitor(ratios, [500, 900, 1300, 1700, 2100])
+    pv.note_rx_monitor(monitor)
+    pv.note_applied_payload(payload)
+    pv.add_point(payload, monitor)
+    pv.set_valve_plot_visible(True)
+
+    tick_calls: list[tuple[str, int]] = []
+    for ch in range(5):
+        pv._curve_tx[ch].setData = (lambda c: (lambda *args, **kwargs: tick_calls.append(("tx", c))))(ch)
+        pv._curve_rx[ch].setData = (lambda c: (lambda *args, **kwargs: tick_calls.append(("rx", c))))(ch)
+        pv._curve_valve[ch].setData = (lambda c: (lambda *args, **kwargs: tick_calls.append(("valve", c))))(ch)
+
+    did_work = pv.refresh()
+    assert did_work is True
+
+    channels_touched = sorted({ch for _kind, ch in tick_calls})
+    assert channels_touched == [0, 1, 2, 3, 4]
+    for ch in channels_touched:
+        kinds = {kind for kind, idx in tick_calls if idx == ch}
+        assert kinds == {"tx", "rx"}
+
+
+def test_latest_only_commit_skips_older_unrendered_serial(qapp):
+    pv = _make_plot_view(qapp)
+    ratios_a = [10.0, 20.0, 30.0, 40.0, 50.0]
+    ratios_b = [11.0, 21.0, 31.0, 41.0, 51.0]
+    monitor_a = _make_monitor(ratios_a, [500, 900, 1300, 1700, 2100])
+    monitor_b = _make_monitor(ratios_b, [550, 950, 1350, 1750, 2150])
+    pv.note_rx_monitor(monitor_b)
+
+    pv.add_point(build_io_payload_model(5, ratios_a), monitor_a)
+    serial_a = pv._sample_serial
+    pv.add_point(build_io_payload_model(5, ratios_b), monitor_b)
+    serial_b = pv._sample_serial
+
+    # Only one refresh occurs; it should commit the latest serial.
+    assert serial_b == serial_a + 1
+    assert pv.refresh() is True
+    assert pv._last_rendered_sample_serial == serial_b
+
+    x, y = pv._build_display_data(pv._y_rx, 0)
+    assert len(x) == 2
+    assert y[-1] == pytest.approx(ratios_b[0], abs=0.1)
+
+
+def test_setdata_counters_track_per_channel_calls(qapp):
+    pv = _make_plot_view(qapp)
+    ratios = [10.0, 20.0, 30.0, 40.0, 50.0]
+    payload = build_io_payload_model(5, ratios)
+    monitor = _make_monitor(ratios, [500, 900, 1300, 1700, 2100])
+    pv.note_rx_monitor(monitor)
+    pv.note_applied_payload(payload)
+    pv.add_point(payload, monitor)
+    pv.set_valve_plot_visible(True)
+    pv.reset_setdata_counters()
+
+    assert pv.refresh(force=True) is True
+    counts = pv.snapshot_setdata_counters()
+
+    assert counts["tx"][:5] == (1, 1, 1, 1, 1)
+    assert counts["rx"][:5] == (1, 1, 1, 1, 1)
+    assert counts["valve"][:5] == (1, 1, 1, 1, 1)
+    assert counts["tx"][5] == 0
+    assert counts["rx"][5] == 0
+    assert counts["valve"][5] == 0
+
+    assert pv.refresh() is False
+    assert pv.snapshot_setdata_counters() == counts
+
+
+def test_phase_b_defers_valve_then_flushes_next_tick(qapp):
+    pv = _make_plot_view(qapp)
+    ratios = [10.0, 20.0, 30.0, 40.0, 50.0]
+    payload = build_io_payload_model(5, ratios)
+    monitor = _make_monitor(ratios, [500, 900, 1300, 1700, 2100])
+    pv.note_rx_monitor(monitor)
+    pv.note_applied_payload(payload)
+    pv.add_point(payload, monitor)
+    pv.set_valve_plot_visible(True)
+    pv.set_render_budget_ms(1.0)  # force Valve defer on this tick
+    pv.reset_load_shed_counters()
+
+    tx_calls, rx_calls, valve_calls = [], [], []
+
+    def capture(target):
+        def inner(*args, **kwargs):
+            target.append(kwargs)
+        return inner
+
+    for curve in pv._curve_tx:
+        if curve.isVisible():
+            curve.setData = capture(tx_calls)
+    for curve in pv._curve_rx:
+        if curve.isVisible():
+            curve.setData = capture(rx_calls)
+    for curve in pv._curve_valve:
+        if curve.isVisible():
+            curve.setData = capture(valve_calls)
+
+    # Tick 1: core (TX/RX) only, Valve deferred.
+    assert pv.refresh() is True
+    assert tx_calls
+    assert rx_calls
+    assert valve_calls == []
+    shed1 = pv.snapshot_load_shed_counters()
+    assert shed1["valve_deferred"] == pytest.approx(1.0)
+    assert shed1["valve_dropped"] == pytest.approx(0.0)
+
+    # Tick 2: no new sample, deferred Valve flushes.
+    pv.set_render_budget_ms(100.0)
+    assert pv.refresh() is False  # data-frame unchanged; Valve-only work
+    assert valve_calls
+    shed2 = pv.snapshot_load_shed_counters()
+    assert shed2["valve_rendered"] == pytest.approx(1.0)
+
+
+def test_phase_b_drops_stale_deferred_valve_on_new_sample(qapp):
+    pv = _make_plot_view(qapp)
+    ratios_a = [10.0, 20.0, 30.0, 40.0, 50.0]
+    ratios_b = [11.0, 21.0, 31.0, 41.0, 51.0]
+    monitor_a = _make_monitor(ratios_a, [500, 900, 1300, 1700, 2100])
+    monitor_b = _make_monitor(ratios_b, [550, 950, 1350, 1750, 2150])
+    pv.note_rx_monitor(monitor_a)
+    pv.set_valve_plot_visible(True)
+    pv.reset_load_shed_counters()
+
+    pv.add_point(build_io_payload_model(5, ratios_a), monitor_a)
+    pv.set_render_budget_ms(1.0)
+    assert pv.refresh() is True  # defer Valve for serial A
+
+    pv.add_point(build_io_payload_model(5, ratios_b), monitor_b)
+    shed = pv.snapshot_load_shed_counters()
+    assert shed["valve_dropped"] == pytest.approx(1.0)
+
+
+def test_tx_updates_only_every_render_interval_samples(qapp):
+    pv = _make_plot_view(qapp)
+    ratios = [10.0, 20.0, 30.0, 40.0, 50.0]
+    payload = build_io_payload_model(5, ratios)
+    monitor = _make_monitor(ratios, [500, 900, 1300, 1700, 2100])
+    pv.note_rx_monitor(monitor)
+    pv.set_valve_plot_visible(False)
+    pv.add_point(payload, monitor)
+    assert pv.refresh() is True
+
+    tx_calls = []
+    for curve in pv._curve_tx:
+        if curve.isVisible():
+            curve.setData = (lambda target: (lambda *args, **kwargs: target.append(kwargs)))(tx_calls)
+
+    for _ in range(TX_RENDER_INTERVAL - 1):
+        pv.add_point(payload, monitor)
+        assert pv.refresh() is True
+    assert tx_calls == []
+
+    pv.add_point(payload, monitor)
+    assert pv.refresh() is True
+    assert tx_calls
+    shed = pv.snapshot_load_shed_counters()
+    assert shed["tx_deferred"] == pytest.approx(0.0)
+    assert shed["tx_rendered"] == pytest.approx(0.0)
+
+
+def test_tx_setdata_payload_uses_sample_history_not_two_point_line(qapp):
+    pv = _make_plot_view(qapp)
+    ratios = [20.0, 40.0, 60.0, 80.0, 100.0]
+    payload = build_io_payload_model(5, ratios)
+    monitor = _make_monitor(ratios, [500, 900, 1300, 1700, 2100])
+    pv.note_rx_monitor(monitor)
+    pv.set_valve_plot_visible(False)
+    pv.add_point(payload, monitor)
+
+    captured: list[tuple[tuple, dict]] = []
+    original_set_data = pv._curve_tx[0].setData
+
+    def capture_set_data(*args, **kwargs):
+        captured.append((args, kwargs))
+        return original_set_data(*args, **kwargs)
+
+    pv._curve_tx[0].setData = capture_set_data
+    assert pv.refresh() is True
+    assert captured
+    args, kwargs = captured[-1]
+    x_d = args[0]
+    y_d = args[1]
+    assert kwargs.get("stepMode") == "left"
+    assert len(x_d) >= 1
+    assert len(y_d) >= 1
+
+
+def test_tx_remains_sample_truth_without_applied_overlay_history(qapp):
+    pv = _make_plot_view(qapp)
+    payload_10 = build_io_payload_model(5, [10.0, 20.0, 30.0, 40.0, 50.0])
+    payload_20 = build_io_payload_model(5, [20.0, 20.0, 30.0, 40.0, 50.0])
+    payload_30 = build_io_payload_model(5, [30.0, 20.0, 30.0, 40.0, 50.0])
+    monitor_10 = _make_monitor([10.0, 20.0, 30.0, 40.0, 50.0], [500, 900, 1300, 1700, 2100])
+    monitor_30 = _make_monitor([30.0, 20.0, 30.0, 40.0, 50.0], [550, 950, 1350, 1750, 2150])
+    pv.note_rx_monitor(monitor_10)
+    pv.set_valve_plot_visible(False)
+    pv.note_applied_payload(payload_10)
+    pv.add_point(payload_10, monitor_10)
+    assert pv.refresh() is True
+
+    # Applied payload changes without an accompanying sample should not alter TX graph.
+    pv.note_applied_payload(payload_20)
+    pv.note_applied_payload(payload_30)
+    assert pv.refresh() is False
+    _x0, y0 = pv._build_display_data(pv._y_tx, 0, step=True)
+    assert y0[-1] == pytest.approx(10.0, abs=0.01)
+
+    # TX graph changes only when a sample carrying that TX value arrives.
+    pv.add_point(payload_30, monitor_30)
+    assert pv.refresh() is True
+    _x1, y1 = pv._build_display_data(pv._y_tx, 0, step=True)
+    assert y1[-1] == pytest.approx(30.0, abs=0.01)
+
 
 def test_ratio_y_range_has_padding(qapp):
     pv = _make_plot_view(qapp)
     y_range = pv._ratio_plot.viewRange()[1]
-    assert y_range[0] == pytest.approx(-5.0), f"ratio Y min should be -5.0, got {y_range[0]}"
-    assert y_range[1] == pytest.approx(105.0), f"ratio Y max should be 105.0, got {y_range[1]}"
+    assert y_range[0] == pytest.approx(-5.0)
+    assert y_range[1] == pytest.approx(105.0)
 
 
 def test_valve_y_range_has_padding(qapp):
     pv = _make_plot_view(qapp)
     y_range = pv._valve_plot.viewRange()[1]
-    assert y_range[0] == pytest.approx(-0.25), f"valve Y min should be -0.25, got {y_range[0]}"
-    assert y_range[1] == pytest.approx(5.25), f"valve Y max should be 5.25, got {y_range[1]}"
+    assert y_range[0] == pytest.approx(-0.25)
+    assert y_range[1] == pytest.approx(5.25)
 
 
-# -- Test 7: Two-tier dotted grid lines (InfiniteLine) --
+def test_valve_plot_visible_by_default_and_toggleable(qapp):
+    pv = _make_plot_view(qapp)
 
-def test_ratio_grid_major_and_minor_exist(qapp):
-    """Verify ratio plot has both major (10%) and minor (2%) grid lines."""
+    assert pv.valve_plot_visible() is True
+    assert pv._valve_container.isHidden() is False
+
+    pv.set_valve_plot_visible(False)
+
+    assert pv.valve_plot_visible() is False
+    assert pv._valve_container.isHidden() is True
+
+
+def test_ratio_grid_major_only_by_default(qapp):
     pv = _make_plot_view(qapp)
     grid_lines = [
         item for item in pv._ratio_plot.items
         if isinstance(item, pg.InfiniteLine) and item.zValue() == -100
     ]
-    # Major Y: 0,10,20,...,100 = 11 lines + X: 0,2,4,6,8,10 = 6 lines = 17
-    # Minor Y: 2,4,6,8,12,14,...,98 = 40 lines (every 2% excluding 10% multiples)
-    # Total = 57
-    assert len(grid_lines) == 57, f"expected 57 grid lines (17 major + 40 minor), got {len(grid_lines)}"
+    assert len(grid_lines) == 17
 
 
 def test_valve_grid_exists(qapp):
-    """Verify valve plot has grid lines."""
     pv = _make_plot_view(qapp)
     grid_lines = [
         item for item in pv._valve_plot.items
         if isinstance(item, pg.InfiniteLine) and item.zValue() == -100
     ]
-    # Y: 0,1,2,3,4,5 = 6 + X: 0,2,4,6,8,10 = 6 = 12
-    assert len(grid_lines) == 12, f"expected 12 grid lines, got {len(grid_lines)}"
+    assert len(grid_lines) == 12
 
 
 def test_grid_pen_style_is_custom_dash(qapp):
-    """Verify all grid lines use CustomDashLine pen style."""
     pv = _make_plot_view(qapp)
     grid_lines = [
         item for item in pv._ratio_plot.items
@@ -320,6 +492,18 @@ def test_grid_pen_style_is_custom_dash(qapp):
     ]
     for line in grid_lines:
         pen = line.pen
-        assert pen.style() == QtCore.Qt.PenStyle.CustomDashLine, (
-            f"grid line pen should be CustomDashLine, got {pen.style()}"
-        )
+        assert pen.style() == QtCore.Qt.PenStyle.CustomDashLine
+
+
+def test_set_sample_period_resets_buffers(qapp):
+    pv = _make_plot_view(qapp)
+    pv.add_point(build_io_payload_model(1, [25.0]), _make_monitor([25.0]))
+
+    pv.set_sample_period_s(0.1)
+
+    assert pv.sample_period_s() == pytest.approx(0.1)
+    assert pv._write_index == 0
+    assert pv._has_started is False
+    assert pv._sample_serial == 0
+    assert pv._point_count == 100
+    assert pv._x[1] == pytest.approx(0.1)

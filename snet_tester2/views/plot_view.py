@@ -5,7 +5,6 @@ pyqtgraph auto-detects PySide6 when it is already imported.
 """
 
 import time
-from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
@@ -14,19 +13,19 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..protocol.codec import monitor_channel_ratio_percents
 from ..protocol.convert import valve_raw_to_display
-from ..protocol.constants import MAX_CHANNELS, PLACEHOLDER, SAMPLE_PERIOD_S
+from ..protocol.constants import MAX_CHANNELS, SAMPLE_PERIOD_S
 from ..protocol.types import IoPayload, SnetMonitorSnapshot
 from .helpers import find_optional_child, set_badge
 
-GRAPH_REFRESH_S = 0.02
 GRAPH_X_WINDOW_S = 10.0
 GRAPH_PANEL_VALVE_HEIGHT = 120
-PLOT_STALE_THRESHOLD_S = max(0.25, SAMPLE_PERIOD_S * 5.0)
-RAMP_FRAC_RX = 1.0  # RX/Valve: 고객사 요청에 따른 표시용 보간 (full diagonal)
-RAMP_DURATION_RX_S = SAMPLE_PERIOD_S * RAMP_FRAC_RX
+RAMP_FRAC_RX = 0.0  # interpolation disabled: render raw received samples only
+DEFAULT_MINOR_GRID_ENABLED = False
 LEFT_AXIS_WIDTH_PX = 46
 LEFT_TICK_TEXT_WIDTH_PX = 36
 PLOT_WIDGET_SIDE_MARGIN_PX = 0
+LOAD_SHED_HEADROOM_MS = 1.0
+TX_RENDER_INTERVAL = 1
 
 
 def _patch_axis_bounding_rect(axis: pg.AxisItem) -> None:
@@ -130,56 +129,6 @@ def _payload_channel_valves(snet_monitor: Optional[SnetMonitorSnapshot]) -> list
     return valves
 
 
-@dataclass(frozen=True)
-class ChannelSummaryRow:
-    channel: int
-    set_percent: Optional[float]
-    actual_percent: Optional[float]
-    valve_volts: Optional[float]
-    state_text: str
-
-
-def build_channel_console_rows(
-    tx_payload: Optional[IoPayload],
-    rx_monitor: Optional[SnetMonitorSnapshot],
-    rx_stale: bool = False,
-) -> list[ChannelSummaryRow]:
-    tx_count = 0 if tx_payload is None else int(tx_payload.channel_count)
-    rx_count = 0 if rx_monitor is None else int(rx_monitor.channel_count)
-    set_rows = _payload_channel_ratios(tx_payload)
-    actual_rows = monitor_channel_ratio_percents(rx_monitor)
-    valve_rows = _payload_channel_valves(rx_monitor)
-
-    rows: list[ChannelSummaryRow] = []
-    for ch in range(MAX_CHANNELS):
-        if ch < tx_count:
-            set_value = set_rows[ch]
-            actual_value = actual_rows[ch] if ch < rx_count else None
-            valve_value = valve_rows[ch] if ch < rx_count else None
-            if rx_count == 0:
-                state = 'SET'
-            elif rx_stale:
-                state = 'STALE'
-            else:
-                state = 'LIVE'
-        else:
-            set_value = None
-            actual_value = None
-            valve_value = None
-            state = 'IDLE'
-
-        rows.append(
-            ChannelSummaryRow(
-                channel=ch + 1,
-                set_percent=set_value,
-                actual_percent=actual_value,
-                valve_volts=valve_value,
-                state_text=state,
-            )
-        )
-    return rows
-
-
 class PlotTheme:
     """White Paper theme -- high contrast on white background."""
 
@@ -239,15 +188,37 @@ class PlotView:
         self._font.setPointSize(max(9, self._font.pointSize()))
         self._theme = PlotTheme()
 
-        self._point_count = max(1, int(GRAPH_X_WINDOW_S / SAMPLE_PERIOD_S))
-        self._x = np.arange(self._point_count, dtype=np.float32) * SAMPLE_PERIOD_S
-        self._y_tx = np.full((MAX_CHANNELS, self._point_count), np.nan, dtype=np.float32)
-        self._y_rx = np.full((MAX_CHANNELS, self._point_count), np.nan, dtype=np.float32)
-        self._y_valve = np.full((MAX_CHANNELS, self._point_count), np.nan, dtype=np.float32)
+        self._sample_period_s = SAMPLE_PERIOD_S
+        self._minor_grid_enabled = DEFAULT_MINOR_GRID_ENABLED
+        self._point_count = 0
+        self._x = np.empty(0, dtype=np.float32)
+        self._y_tx = np.empty((MAX_CHANNELS, 0), dtype=np.float32)
+        self._y_rx = np.empty((MAX_CHANNELS, 0), dtype=np.float32)
+        self._y_valve = np.empty((MAX_CHANNELS, 0), dtype=np.float32)
         self._write_index = 0
         self._has_started = False
-        self._last_refresh = 0.0
-        self._last_add_point_time = 0.0
+        self._sample_serial = 0
+        self._last_rendered_sample_serial = -1
+        self._pending_render_sample_serial = -1
+        self._last_tx_render_serial = -TX_RENDER_INTERVAL
+        self._pending_valve_sample_serial = -1
+        self._last_valve_rendered_sample_serial = -1
+        self._render_budget_ms = 1000.0 / 60.0
+        self._valve_render_cost_ema_ms = 2.0
+        self._load_shed_stats = {
+            'tx_deferred': 0,
+            'tx_dropped': 0,
+            'tx_rendered': 0,
+            'tx_force_immediate': 0,
+            'valve_deferred': 0,
+            'valve_dropped': 0,
+            'valve_rendered': 0,
+        }
+        self._setdata_counts = {
+            'tx': [0] * MAX_CHANNELS,
+            'rx': [0] * MAX_CHANNELS,
+            'valve': [0] * MAX_CHANNELS,
+        }
         self._active_tx_count = 1
         self._active_rx_count = 0
         self._running = False
@@ -259,13 +230,13 @@ class PlotView:
 
         self._applied_payload = None
         self._last_rx_monitor: Optional[SnetMonitorSnapshot] = None
-        self._cached_set = [None] * MAX_CHANNELS
-        self._cached_actual = [None] * MAX_CHANNELS
-        self._cached_valve = [None] * MAX_CHANNELS
+        self._ratio_minor_grid_lines: list[pg.InfiniteLine] = []
+        self._valve_plot_visible = True
 
         self._curve_tx: list = []
         self._curve_rx: list = []
         self._curve_valve: list = []
+        self._valve_container: Optional[QtWidgets.QWidget] = None
         # Summary strip removed -- channel data shown in rxMonitorTable only
 
         self.plotRunValueLabel = find_optional_child(self._plot_root, QtWidgets.QLabel, 'plotRunValueLabel')
@@ -277,6 +248,7 @@ class PlotView:
 
         self._apply_panel_theme()
         self._configure_status_bar()
+        self._reset_buffers()
         self._build_plots()
         self._configure_toggle_buttons()
         self._apply_curve_visibility()
@@ -293,7 +265,7 @@ class PlotView:
 
         # Dynamic initial values computed from constants
         if self.plotSampleValueLabel is not None:
-            self.plotSampleValueLabel.setText(f'{SAMPLE_PERIOD_S * 1000:.0f} ms')
+            self.plotSampleValueLabel.setText(f'{self._sample_period_s * 1000:.0f} ms')
         if self.plotWindowValueLabel is not None:
             self.plotWindowValueLabel.setText(f'{GRAPH_X_WINDOW_S:.1f} s')
         if self.plotLastUpdateValueLabel is not None:
@@ -323,13 +295,18 @@ class PlotView:
         self._configure_ratio_plot(self._ratio_plot)
         pg.setConfigOptions(antialias=False, background=self._theme.qcolor(self._theme.background))
 
+        _empty_x = np.empty(0, dtype=np.float32)
+        _empty_y = np.empty(0, dtype=np.float32)
+        # ui-override: PlotCurveItem 직접 사용 -- PlotDataItem 래퍼(ScatterPlotItem 포함) 오버헤드 제거
         for ch in range(MAX_CHANNELS):
-            rx_curve = self._ratio_plot.plot(self._x, self._y_rx[ch], pen=self._theme.rx_live_pen(ch), connect='finite')
+            rx_curve = pg.PlotCurveItem(_empty_x, _empty_y, pen=self._theme.rx_live_pen(ch), connect='finite')
+            self._ratio_plot.addItem(rx_curve)
             self._curve_rx.append(rx_curve)
         # TX (setpoint) drawn after RX so step-lines render on top
         for ch in range(MAX_CHANNELS):
-            tx_curve = self._ratio_plot.plot(self._x, self._y_tx[ch], pen=self._theme.tx_pen(ch),
-                                             connect='finite', stepMode='left')
+            tx_curve = pg.PlotCurveItem(_empty_x, _empty_y, pen=self._theme.tx_pen(ch),
+                                        connect='finite', stepMode='left')
+            self._ratio_plot.addItem(tx_curve)
             self._curve_tx.append(tx_curve)
 
         # ui-override: Python 전용 위젯 (pyqtgraph PlotWidget)
@@ -343,8 +320,10 @@ class PlotView:
         self._configure_valve_plot(self._valve_plot)
         self._valve_plot.setXLink(self._ratio_plot)
         self._synchronize_axis_geometry()
+        # ui-override: PlotCurveItem 직접 사용 -- PlotDataItem 래퍼 오버헤드 제거
         for ch in range(MAX_CHANNELS):
-            valve_curve = self._valve_plot.plot(self._x, self._y_valve[ch], pen=self._theme.valve_pen(ch), connect='finite')
+            valve_curve = pg.PlotCurveItem(_empty_x, _empty_y, pen=self._theme.valve_pen(ch), connect='finite')
+            self._valve_plot.addItem(valve_curve)
             self._curve_valve.append(valve_curve)
 
         # Frames and labels are defined in .ui; just add plot widgets into them
@@ -358,15 +337,18 @@ class PlotView:
 
         if valve_frame is not None:
             valve_frame.layout().addWidget(self._valve_plot_widget, 1)
+            self._valve_container = valve_frame
         else:
             layout.addWidget(self._valve_plot_widget, 2)
+            self._valve_container = self._valve_plot_widget
 
         # ui-override: Designer 미지원 -- QVBoxLayout stretch는 .ui XML에 표현 불가
         layout.setStretch(0, 8)
         layout.setStretch(1, 2)
         self._ratio_plot_widget.setObjectName('ratioPlot')
         self._valve_plot_widget.setObjectName('valvePlot')
-        self._refresh_summary_rows()
+        if self._valve_container is not None:
+            self._valve_container.setVisible(self._valve_plot_visible)
 
     def _synchronize_axis_geometry(self):
         for plot, margin in ((self._ratio_plot, 30), (self._valve_plot, 50)):
@@ -397,13 +379,15 @@ class PlotView:
             color=self._theme.qcolor(self._theme.grid_major),
             dash_pattern=[2, 4],
         )
-        _add_grid_lines(
-            plot,
-            y_ticks=[float(v) for v in range(0, 101, 2) if v % 10 != 0],
-            x_ticks=[],
-            color=self._theme.qcolor(self._theme.grid_minor),
-            dash_pattern=[1, 4],
-        )
+        self._ratio_minor_grid_lines = []
+        if self._minor_grid_enabled:
+            self._ratio_minor_grid_lines = _add_grid_lines(
+                plot,
+                y_ticks=[float(v) for v in range(0, 101, 2) if v % 10 != 0],
+                x_ticks=[],
+                color=self._theme.qcolor(self._theme.grid_minor),
+                dash_pattern=[1, 4],
+            )
         plot.setXRange(0.0, GRAPH_X_WINDOW_S, padding=0.0)
         plot.setYRange(-5.0, 105.0, padding=0.0)
         plot.disableAutoRange()
@@ -501,7 +485,7 @@ class PlotView:
             rx_vis = ch < self._active_rx_count and self._toggle_buttons[(ch, 'rx')].isChecked()
             self._curve_tx[ch].setVisible(tx_vis)
             self._curve_rx[ch].setVisible(rx_vis)
-            self._curve_valve[ch].setVisible(rx_vis)
+            self._curve_valve[ch].setVisible(self._valve_plot_visible and rx_vis)
 
     def _apply_rx_curve_style(self):
         for ch in range(MAX_CHANNELS):
@@ -514,29 +498,10 @@ class PlotView:
         if self.plotRxStateValueLabel is not None:
             set_badge(self.plotRxStateValueLabel, text, tone)
 
-    def _format_numeric(self, value: Optional[float], fmt: str) -> str:
-        if value is None:
-            return PLACEHOLDER
-        return fmt.format(value)
-
-    def _refresh_summary_rows(
-        self,
-        tx_payload: Optional[IoPayload] = None,
-        rx_monitor: Optional[SnetMonitorSnapshot] = None,
-        rx_stale: bool = False,
-    ):
-        payload = tx_payload if tx_payload is not None else self._applied_payload
-        rows = build_channel_console_rows(payload, rx_monitor, rx_stale=rx_stale)
-        for row in rows:
-            self._cached_set[row.channel - 1] = row.set_percent
-            self._cached_actual[row.channel - 1] = row.actual_percent
-            self._cached_valve[row.channel - 1] = row.valve_volts
-
     def note_applied_payload(self, payload: Optional[IoPayload]):
         self._applied_payload = payload
         tx_count = 0 if payload is None else int(payload.channel_count)
         self._active_tx_count = max(0, min(MAX_CHANNELS, tx_count))
-        self._update_summary_from_payload(self._applied_payload, self._last_rx_monitor, self._rx_stale)
         self._apply_curve_visibility()
 
     def note_rx_timeout(self):
@@ -545,7 +510,6 @@ class PlotView:
         self._last_rx_monotonic = None
         self._apply_rx_curve_style()
         self._set_rx_state('STALE', 'warn')
-        self._update_summary_from_payload(self._applied_payload, self._last_rx_monitor, rx_stale=True)
         if self.plotTimeoutValueLabel is not None:
             self.plotTimeoutValueLabel.setText(str(self._rx_timeouts))
 
@@ -554,29 +518,136 @@ class PlotView:
             self.note_rx_timeout()
             return
 
-        self._active_rx_count = max(0, min(MAX_CHANNELS, int(rx_monitor.channel_count)))
+        new_count = max(0, min(MAX_CHANNELS, int(rx_monitor.channel_count)))
+        count_changed = new_count != self._active_rx_count
+        was_stale = self._rx_stale
+
+        self._active_rx_count = new_count
         self._last_rx_monitor = rx_monitor
         self._last_rx_monotonic = time.perf_counter()
         self._rx_stale = False
-        self._apply_rx_curve_style()
-        self._set_rx_state('LIVE', 'ok')
-        self._update_summary_from_payload(self._applied_payload, rx_monitor, rx_stale=False)
-        self._apply_curve_visibility()
 
-    def _update_summary_from_payload(
-        self,
-        tx_payload: Optional[IoPayload],
-        rx_monitor: Optional[SnetMonitorSnapshot],
-        rx_stale: bool,
-    ):
-        self._refresh_summary_rows(tx_payload, rx_monitor, rx_stale=rx_stale)
+        # ui-override: state transition guard -- 매 샘플 setPen/setVisible/setText 호출 제거
+        if was_stale:
+            self._apply_rx_curve_style()
+        if self._rx_state != 'LIVE':
+            self._set_rx_state('LIVE', 'ok')
+        if count_changed:
+            self._apply_curve_visibility()
 
     def set_series_counts(self, tx_count: Optional[int] = None, rx_count: Optional[int] = None):
+        next_tx_count = self._active_tx_count
+        next_rx_count = self._active_rx_count
         if tx_count is not None:
-            self._active_tx_count = max(0, min(MAX_CHANNELS, int(tx_count)))
+            next_tx_count = max(0, min(MAX_CHANNELS, int(tx_count)))
         if rx_count is not None:
-            self._active_rx_count = max(0, min(MAX_CHANNELS, int(rx_count)))
+            next_rx_count = max(0, min(MAX_CHANNELS, int(rx_count)))
+        if next_tx_count == self._active_tx_count and next_rx_count == self._active_rx_count:
+            return
+        self._active_tx_count = next_tx_count
+        self._active_rx_count = next_rx_count
         self._apply_curve_visibility()
+
+    def _stale_threshold_s(self) -> float:
+        return max(0.25, self._sample_period_s * 5.0)
+
+    def _reset_buffers(self):
+        self._point_count = max(1, int(GRAPH_X_WINDOW_S / self._sample_period_s))
+        self._x = np.arange(self._point_count, dtype=np.float32) * self._sample_period_s
+        self._clear_cycle_buffers()
+
+    def _clear_cycle_buffers(self):
+        self._y_tx = np.full((MAX_CHANNELS, self._point_count), np.nan, dtype=np.float32)
+        self._y_rx = np.full((MAX_CHANNELS, self._point_count), np.nan, dtype=np.float32)
+        self._y_valve = np.full((MAX_CHANNELS, self._point_count), np.nan, dtype=np.float32)
+        self._write_index = 0
+        self._has_started = False
+        self._sample_serial = 0
+        self._last_rendered_sample_serial = -1
+        self._pending_render_sample_serial = -1
+        self._last_tx_render_serial = -TX_RENDER_INTERVAL
+        self._pending_valve_sample_serial = -1
+        self._last_valve_rendered_sample_serial = -1
+
+    def reset_setdata_counters(self):
+        for key in ('tx', 'rx', 'valve'):
+            for ch in range(MAX_CHANNELS):
+                self._setdata_counts[key][ch] = 0
+
+    def reset_load_shed_counters(self):
+        for key in (
+            'tx_deferred',
+            'tx_dropped',
+            'tx_rendered',
+            'tx_force_immediate',
+            'valve_deferred',
+            'valve_dropped',
+            'valve_rendered',
+        ):
+            self._load_shed_stats[key] = 0
+
+    def snapshot_setdata_counters(self) -> dict[str, tuple[int, ...]]:
+        return {
+            'tx': tuple(self._setdata_counts['tx']),
+            'rx': tuple(self._setdata_counts['rx']),
+            'valve': tuple(self._setdata_counts['valve']),
+        }
+
+    def snapshot_load_shed_counters(self) -> dict[str, float]:
+        return {
+            'tx_deferred': float(self._load_shed_stats['tx_deferred']),
+            'tx_dropped': float(self._load_shed_stats['tx_dropped']),
+            'tx_rendered': float(self._load_shed_stats['tx_rendered']),
+            'tx_force_immediate': float(self._load_shed_stats['tx_force_immediate']),
+            'tx_render_cost_ema_ms': 0.0,
+            'valve_deferred': float(self._load_shed_stats['valve_deferred']),
+            'valve_dropped': float(self._load_shed_stats['valve_dropped']),
+            'valve_rendered': float(self._load_shed_stats['valve_rendered']),
+            'valve_render_cost_ema_ms': float(self._valve_render_cost_ema_ms),
+        }
+
+    def snapshot_channel_sync_skew(self) -> dict[str, int]:
+        def _series_skew(curves: list, key: str) -> int:
+            visible_counts = [self._setdata_counts[key][ch] for ch in range(MAX_CHANNELS) if curves[ch].isVisible()]
+            if len(visible_counts) <= 1:
+                return 0
+            return max(visible_counts) - min(visible_counts)
+
+        return {
+            'tx': _series_skew(self._curve_tx, 'tx'),
+            'rx': _series_skew(self._curve_rx, 'rx'),
+            'valve': _series_skew(self._curve_valve, 'valve'),
+        }
+
+    def set_sample_period_s(self, sample_period_s: float):
+        self._sample_period_s = max(0.001, float(sample_period_s))
+        self._reset_buffers()
+        if self.plotSampleValueLabel is not None:
+            self.plotSampleValueLabel.setText(f'{self._sample_period_s * 1000:.0f} ms')
+
+    def sample_period_s(self) -> float:
+        return self._sample_period_s
+
+    def set_minor_grid_enabled(self, enabled: bool):
+        self._minor_grid_enabled = bool(enabled)
+        for line in self._ratio_minor_grid_lines:
+            line.setVisible(self._minor_grid_enabled)
+
+    def minor_grid_enabled(self) -> bool:
+        return self._minor_grid_enabled
+
+    def set_valve_plot_visible(self, visible: bool):
+        self._valve_plot_visible = bool(visible)
+        if not self._valve_plot_visible:
+            self._pending_valve_sample_serial = -1
+        elif self._last_rendered_sample_serial > self._last_valve_rendered_sample_serial:
+            self._pending_valve_sample_serial = self._last_rendered_sample_serial
+        if self._valve_container is not None:
+            self._valve_container.setVisible(self._valve_plot_visible)
+        self._apply_curve_visibility()
+
+    def valve_plot_visible(self) -> bool:
+        return self._valve_plot_visible
 
     def set_run_state(self, running: bool):
         self._running = running
@@ -585,20 +656,23 @@ class PlotView:
         if not running and self._rx_state not in ('STALE', 'TIMEOUT'):
             self._set_rx_state('WAIT', 'neutral')
 
-    def add_point(self, tx_payload: Optional[IoPayload], rx_monitor: Optional[SnetMonitorSnapshot]):
+    def set_render_budget_ms(self, budget_ms: float):
+        self._render_budget_ms = max(1.0, float(budget_ms))
+
+    def add_point(
+        self,
+        tx_payload: Optional[IoPayload],
+        rx_monitor: Optional[SnetMonitorSnapshot],
+        *,
+        arrival_monotonic_s: Optional[float] = None,
+    ):
         if self._has_started and self._write_index == 0:
-            self._y_tx.fill(np.nan)
-            self._y_rx.fill(np.nan)
-            self._y_valve.fill(np.nan)
+            # User-preferred static mode: each 10-second window is an independent batch.
+            self._clear_cycle_buffers()
 
         tx_ratios = _payload_channel_ratios(tx_payload)
         rx_ratios = monitor_channel_ratio_percents(rx_monitor)
         valve_values = _payload_channel_valves(rx_monitor)
-
-        self.set_series_counts(
-            tx_count=tx_payload.channel_count if tx_payload is not None else 0,
-            rx_count=rx_monitor.channel_count if rx_monitor is not None else 0,
-        )
 
         for ch in range(MAX_CHANNELS):
             self._y_tx[ch, self._write_index] = np.nan if tx_ratios[ch] is None else np.float32(tx_ratios[ch])
@@ -607,104 +681,140 @@ class PlotView:
 
         self._write_index = (self._write_index + 1) % self._point_count
         self._has_started = True
-        self._last_add_point_time = time.perf_counter()
-        self._update_summary_from_payload(tx_payload, rx_monitor, self._rx_stale)
+        self._sample_serial += 1
+        # Phase B policy:
+        # - Always store every raw sample into the ring buffers.
+        # - If a newer sample arrives before a deferred Valve render is committed,
+        #   drop only that deferred Valve render (stale visual work), not raw data.
+        if (
+            self._pending_valve_sample_serial > self._last_valve_rendered_sample_serial
+            and self._pending_valve_sample_serial < self._sample_serial
+        ):
+            self._load_shed_stats['valve_dropped'] += 1
+            self._pending_valve_sample_serial = -1
+        self._pending_render_sample_serial = self._sample_serial
 
     def _update_status_age(self, now: float):
         if self._last_rx_monotonic is None:
             return
         age_s = max(0.0, now - self._last_rx_monotonic)
-        if self._running and age_s >= PLOT_STALE_THRESHOLD_S and self._rx_state == 'LIVE':
+        if self._running and age_s >= self._stale_threshold_s() and self._rx_state == 'LIVE':
             self._rx_stale = True
             self._apply_rx_curve_style()
             self._set_rx_state('STALE', 'warn')
-            self._update_summary_from_payload(self._applied_payload, self._last_rx_monitor, rx_stale=True)
+
+    def _display_sample_count(self) -> int:
+        """Return the number of raw received samples currently visible."""
+        if not self._has_started:
+            return 0
+        return min(self._sample_serial, self._point_count)
+
+    def _ordered_channel_values(self, y_buf: np.ndarray, ch: int, count: int) -> np.ndarray:
+        """Return channel values in display order for the current static cycle."""
+        if count <= 0:
+            return y_buf[ch, :0]
+        # Static 10-second mode clears buffers at cycle boundary, so visible
+        # samples are always contiguous from index 0.
+        return y_buf[ch, :count]
 
     def _build_display_data(self, y_buf: np.ndarray, ch: int, *, step: bool = False):
-        """Return (x_display, y_display) with leading edge extension.
-
-        When *step* is True (TX curves):
-            Raw data + leading edge only (n+1 points).  pyqtgraph's
-            ``stepMode='left'`` handles the step rendering, so no hold+ramp
-            expansion is needed.
-
-        When *step* is False (RX/Valve curves, default):
-            Hold+ramp expansion inserts hold end-points before each sample,
-            creating a short diagonal ramp instead of a vertical step.
-        """
-        n = self._write_index          # valid points: indices 0 .. n-1
-        has_data = self._has_started and n > 0
-
-        if not has_data:
-            return self._x, y_buf[ch]
-
-        last_val = y_buf[ch, n - 1]
-        if np.isnan(last_val):
-            return self._x[:n], y_buf[ch, :n]
-
-        x_raw = self._x[:n]
-        y_raw = y_buf[ch, :n]
-
-        if step:
-            # TX: raw data only, stepMode='left' handles step rendering
-            # -- leading edge extension --
-            elapsed = time.perf_counter() - self._last_add_point_time
-            frac = min(max(elapsed / SAMPLE_PERIOD_S, 0.0), 1.0)
-            leading_x = x_raw[-1] + frac * SAMPLE_PERIOD_S
-            x_disp = np.empty(n + 1, dtype=np.float32)
-            y_disp = np.empty(n + 1, dtype=np.float32)
-            x_disp[:n] = x_raw
-            x_disp[n] = leading_x
-            y_disp[:n] = y_raw
-            y_disp[n] = last_val
-            return x_disp, y_disp
-
-        # -- hold+ramp expansion for RX/Valve (replaces stepMode='left') --
-        # N original points -> up to 2N expanded (hold end-point + original)
-        x_exp = np.empty(n * 2, dtype=np.float32)
-        y_exp = np.empty(n * 2, dtype=np.float32)
-
-        x_exp[0] = x_raw[0]
-        y_exp[0] = y_raw[0]
-        k = 1
-
-        for i in range(1, n):
-            # hold end-point: previous value held until ramp start
-            x_exp[k] = x_raw[i] - RAMP_DURATION_RX_S
-            y_exp[k] = y_raw[i - 1]
-            k += 1
-            # ramp end-point (= original sample): new value
-            x_exp[k] = x_raw[i]
-            y_exp[k] = y_raw[i]
-            k += 1
-
-        # -- leading edge extension (preserved from ECR) --
-        elapsed = time.perf_counter() - self._last_add_point_time
-        frac = min(max(elapsed / SAMPLE_PERIOD_S, 0.0), 1.0)
-        leading_x = x_raw[-1] + frac * SAMPLE_PERIOD_S
-
-        x_disp = np.empty(k + 1, dtype=np.float32)
-        y_disp = np.empty(k + 1, dtype=np.float32)
-        x_disp[:k] = x_exp[:k]
-        x_disp[k] = leading_x
-        y_disp[:k] = y_exp[:k]
-        y_disp[k] = last_val
-        return x_disp, y_disp
+        """Return raw received samples only, with no hiding or interpolation."""
+        n = self._display_sample_count()
+        if n <= 0:
+            return self._x[:0], y_buf[ch, :0]
+        return self._x[:n], self._ordered_channel_values(y_buf, ch, n)
 
     def refresh(self, force: bool = False):
         now = time.perf_counter()
         self._update_status_age(now)
-        if not force and (now - self._last_refresh) < GRAPH_REFRESH_S:
-            return
+        has_pending_core = self._pending_render_sample_serial > self._last_rendered_sample_serial
+        has_pending_valve = (
+            self._valve_plot_visible
+            and self._pending_valve_sample_serial > self._last_valve_rendered_sample_serial
+        )
+        if not force and not has_pending_core and not has_pending_valve:
+            return False
+        if self._sample_serial <= 0:
+            return False
 
-        for ch in range(MAX_CHANNELS):
-            if self._curve_tx[ch].isVisible():
-                x_d, y_d = self._build_display_data(self._y_tx, ch, step=True)
-                self._curve_tx[ch].setData(x_d, y_d, connect='finite', stepMode='left')
-            if self._curve_rx[ch].isVisible():
-                x_d, y_d = self._build_display_data(self._y_rx, ch)
-                self._curve_rx[ch].setData(x_d, y_d, connect='finite')
-            if self._curve_valve[ch].isVisible():
-                x_d, y_d = self._build_display_data(self._y_valve, ch)
-                self._curve_valve[ch].setData(x_d, y_d, connect='finite')
-        self._last_refresh = now
+        frame_start = time.perf_counter()
+        target_serial = self._pending_render_sample_serial
+        did_work = False
+        core_updated = force or has_pending_core
+        self._ratio_plot_widget.setUpdatesEnabled(False)
+        self._valve_plot_widget.setUpdatesEnabled(False)
+        try:
+            if force or has_pending_core:
+                tx_due = force or ((self._sample_serial - self._last_tx_render_serial) >= TX_RENDER_INTERVAL)
+                if tx_due:
+                    tx_rendered = False
+                    for ch in range(MAX_CHANNELS):
+                        if self._curve_tx[ch].isVisible():
+                            x_d, y_d = self._build_display_data(self._y_tx, ch, step=True)
+                            self._curve_tx[ch].setData(x_d, y_d, connect='finite', stepMode='left')
+                            self._setdata_counts['tx'][ch] += 1
+                            did_work = True
+                            tx_rendered = True
+                    if tx_rendered:
+                        self._last_tx_render_serial = self._sample_serial
+                for ch in range(MAX_CHANNELS):
+                    if self._curve_rx[ch].isVisible():
+                        x_d, y_d = self._build_display_data(self._y_rx, ch)
+                        self._curve_rx[ch].setData(x_d, y_d, connect='finite')
+                        self._setdata_counts['rx'][ch] += 1
+                        did_work = True
+                if core_updated and self._valve_plot_visible:
+                    self._pending_valve_sample_serial = target_serial
+
+            valve_pending = force or (
+                self._valve_plot_visible
+                and self._pending_valve_sample_serial > self._last_valve_rendered_sample_serial
+            )
+            if valve_pending:
+                # Priority policy:
+                # TX/RX updates always win on the same tick. Valve work is pushed
+                # to the next render tick, then rendered only if budget allows.
+                if core_updated and not force:
+                    self._load_shed_stats['valve_deferred'] += 1
+                else:
+                    elapsed_ms = (time.perf_counter() - frame_start) * 1000.0
+                    remaining_ms = self._render_budget_ms - elapsed_ms - LOAD_SHED_HEADROOM_MS
+                    valve_budget_needed = max(0.5, self._valve_render_cost_ema_ms * 1.1)
+                    should_render_valve = force or (remaining_ms >= valve_budget_needed)
+                    if should_render_valve:
+                        valve_start = time.perf_counter()
+                        valve_did_work = False
+                        valve_serial = self._pending_valve_sample_serial
+                        for ch in range(MAX_CHANNELS):
+                            if self._curve_valve[ch].isVisible():
+                                x_d, y_d = self._build_display_data(self._y_valve, ch)
+                                self._curve_valve[ch].setData(x_d, y_d, connect='finite')
+                                self._setdata_counts['valve'][ch] += 1
+                                did_work = True
+                                valve_did_work = True
+                        if valve_did_work:
+                            valve_cost_ms = (time.perf_counter() - valve_start) * 1000.0
+                            self._valve_render_cost_ema_ms = (
+                                self._valve_render_cost_ema_ms * 0.8
+                                + valve_cost_ms * 0.2
+                            )
+                            self._last_valve_rendered_sample_serial = max(
+                                self._last_valve_rendered_sample_serial,
+                                valve_serial,
+                            )
+                            self._pending_valve_sample_serial = -1
+                            self._load_shed_stats['valve_rendered'] += 1
+                    else:
+                        self._load_shed_stats['valve_deferred'] += 1
+        finally:
+            self._ratio_plot_widget.setUpdatesEnabled(True)
+            self._valve_plot_widget.setUpdatesEnabled(True)
+            if did_work:
+                self._ratio_plot_widget.viewport().update()
+                self._valve_plot_widget.viewport().update()
+
+        # latest-only gate: if a newer sample arrived before commit ends,
+        # leave the newer serial pending for the next render tick.
+        if core_updated and target_serial == self._pending_render_sample_serial:
+            self._last_rendered_sample_serial = target_serial
+        return core_updated

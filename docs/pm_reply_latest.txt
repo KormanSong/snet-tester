@@ -1,0 +1,48 @@
+Subject: Release rollback completed — TX=1 / Valve=1 baseline established
+
+1) Request fulfillment
+- Completed rollback to requested release setting:
+  - TX interval = 1
+  - Valve interval = 1 (removed Valve interval=2 gate; restored original Phase-B valve flow)
+
+2) Code state
+- File updated: `snet_tester2/views/plot_view.py`
+  - `TX_RENDER_INTERVAL = 1`
+  - Removed `VALVE_RENDER_INTERVAL` and related state/gating logic
+  - Valve path now back to existing defer/budget/stale-drop behavior (no extra interval gate)
+
+3) Validation
+- Tests:
+  - `uv run pytest tests/test_v2_plot_view.py tests/test_v2_main_window.py tests/test_v2_worker.py tests/test_v2_integration.py -q`
+  - Result: `48 passed`
+
+4) Real-device measurements (COM1, 5ch, 32ms, 60fps cap, 30.5s)
+- Files:
+  - `tools/release_tx1_valve1_run1_32ms.json`
+  - `tools/release_tx1_valve1_run2_32ms.json`
+  - `tools/release_tx1_valve1_run3_32ms.json`
+  - `tools/release_tx1_valve1_run4_32ms.json`
+
+Per-run render metrics:
+- run1: avg 58.41 / 1% low 34.16 / drop 30.96% / p99.9 35.81 / worst 36.40
+- run2: avg 52.46 / 1% low 8.57  / drop 36.06% / p99.9 181.35 / worst 318.45
+- run3: avg 58.57 / 1% low 36.29 / drop 32.62% / p99.9 31.00 / worst 36.68
+- run4: avg 58.50 / 1% low 34.98 / drop 31.07% / p99.9 35.31 / worst 39.87
+
+Mean (4 runs):
+- avg 56.99 / 1% low 28.50 / drop 32.68% / p99.9 70.87 / worst 107.85
+
+5) Baseline note
+- Requested baseline configuration is now fixed at TX=1 / Valve=1.
+- There is one severe outlier run (run2). For release monitoring, keep both views:
+  - operational baseline pair: latest stable pair (run3 + run4)
+  - risk baseline: include run2 as tail-risk evidence
+
+6) Comparison context (previous stage)
+- Prior TX=1 + Valve=2 mean:
+  - avg 58.63 / 1% low 37.06 / drop 30.69% / p99.9 31.26 / worst 37.15
+- TX=1 + Valve=1 generally shows higher tail risk due to more valve work on hot path.
+
+7) Decision status
+- Release rollback request: DONE
+- Baseline fixation (TX=1 / Valve=1): DONE
