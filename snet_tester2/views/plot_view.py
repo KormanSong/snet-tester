@@ -26,6 +26,8 @@ LEFT_TICK_TEXT_WIDTH_PX = 36
 PLOT_WIDGET_SIDE_MARGIN_PX = 0
 LOAD_SHED_HEADROOM_MS = 1.0
 TX_RENDER_INTERVAL = 1
+TX_SEGMENTED_LINE_MODE = 'on'
+VALVE_SEGMENTED_LINE_MODE = 'on'
 
 
 def _patch_axis_bounding_rect(axis: pg.AxisItem) -> None:
@@ -306,6 +308,7 @@ class PlotView:
         for ch in range(MAX_CHANNELS):
             tx_curve = pg.PlotCurveItem(_empty_x, _empty_y, pen=self._theme.tx_pen(ch),
                                         connect='finite', stepMode='left')
+            tx_curve.setSegmentedLineMode(TX_SEGMENTED_LINE_MODE)
             self._ratio_plot.addItem(tx_curve)
             self._curve_tx.append(tx_curve)
 
@@ -323,6 +326,7 @@ class PlotView:
         # ui-override: PlotCurveItem 직접 사용 -- PlotDataItem 래퍼 오버헤드 제거
         for ch in range(MAX_CHANNELS):
             valve_curve = pg.PlotCurveItem(_empty_x, _empty_y, pen=self._theme.valve_pen(ch), connect='finite')
+            valve_curve.setSegmentedLineMode(VALVE_SEGMENTED_LINE_MODE)
             self._valve_plot.addItem(valve_curve)
             self._curve_valve.append(valve_curve)
 

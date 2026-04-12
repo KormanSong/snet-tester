@@ -1,48 +1,52 @@
-Subject: Release rollback completed — TX=1 / Valve=1 baseline established
+Subject: Measurement completed with warmup 10s + dynamic setpoint changes
 
-1) Request fulfillment
-- Completed rollback to requested release setting:
-  - TX interval = 1
-  - Valve interval = 1 (removed Valve interval=2 gate; restored original Phase-B valve flow)
+요청 조건으로 재측정 완료:
+- warmup 10초 제외 후 실측
+- 측정 구간 중 setpoint를 주기적으로 변경
 
-2) Code state
-- File updated: `snet_tester2/views/plot_view.py`
-  - `TX_RENDER_INTERVAL = 1`
-  - Removed `VALVE_RENDER_INTERVAL` and related state/gating logic
-  - Valve path now back to existing defer/budget/stale-drop behavior (no extra interval gate)
+Run condition:
+- COM1, 5ch, 32ms, 60fps cap
+- duration 30.5s, warmup 10s
+- ratio sequence (5-pattern):
+  - 20,40,60,80,100
+  - 80,60,40,20,10
+  - 10,30,50,70,90
+  - 90,70,50,30,10
+  - 50,50,50,50,50
+- change interval: 5s
 
-3) Validation
-- Tests:
-  - `uv run pytest tests/test_v2_plot_view.py tests/test_v2_main_window.py tests/test_v2_worker.py tests/test_v2_integration.py -q`
-  - Result: `48 passed`
+Files:
+- tools/release_tx1_valve1_segmented_warm10_dynamic_run1_32ms.json
+- tools/release_tx1_valve1_segmented_warm10_dynamic_run2_32ms.json
 
-4) Real-device measurements (COM1, 5ch, 32ms, 60fps cap, 30.5s)
-- Files:
-  - `tools/release_tx1_valve1_run1_32ms.json`
-  - `tools/release_tx1_valve1_run2_32ms.json`
-  - `tools/release_tx1_valve1_run3_32ms.json`
-  - `tools/release_tx1_valve1_run4_32ms.json`
+Render metrics:
+- Run1:
+  - avg 57.69 / 1% low 22.01 / drop 27.81%
+  - p99.9 70.04ms / worst 88.83ms
+  - perceived<40Hz 1.79% / severe<30Hz 1.01%
+  - setData(ch0): tx 915 / rx 915 / valve 410
+  - ratio_sequence_applied_count: 7
 
-Per-run render metrics:
-- run1: avg 58.41 / 1% low 34.16 / drop 30.96% / p99.9 35.81 / worst 36.40
-- run2: avg 52.46 / 1% low 8.57  / drop 36.06% / p99.9 181.35 / worst 318.45
-- run3: avg 58.57 / 1% low 36.29 / drop 32.62% / p99.9 31.00 / worst 36.68
-- run4: avg 58.50 / 1% low 34.98 / drop 31.07% / p99.9 35.31 / worst 39.87
+- Run2:
+  - avg 58.61 / 1% low 38.94 / drop 28.56%
+  - p99.9 30.58ms / worst 36.51ms
+  - perceived<40Hz 0.39% / severe<30Hz 0.06%
+  - setData(ch0): tx 923 / rx 923 / valve 523
+  - ratio_sequence_applied_count: 7
 
-Mean (4 runs):
-- avg 56.99 / 1% low 28.50 / drop 32.68% / p99.9 70.87 / worst 107.85
+Mean (2 runs):
+- avg 58.15
+- 1% low 30.48
+- drop 28.19%
+- p99.9 50.31ms
+- worst 62.67ms
+- perceived<40Hz 1.09%
+- severe<30Hz 0.53%
 
-5) Baseline note
-- Requested baseline configuration is now fixed at TX=1 / Valve=1.
-- There is one severe outlier run (run2). For release monitoring, keep both views:
-  - operational baseline pair: latest stable pair (run3 + run4)
-  - risk baseline: include run2 as tail-risk evidence
+테스트:
+- `uv run pytest tests/test_v2_plot_view.py tests/test_v2_main_window.py tests/test_v2_worker.py tests/test_v2_integration.py -q`
+- 결과: 48 passed
 
-6) Comparison context (previous stage)
-- Prior TX=1 + Valve=2 mean:
-  - avg 58.63 / 1% low 37.06 / drop 30.69% / p99.9 31.26 / worst 37.15
-- TX=1 + Valve=1 generally shows higher tail risk due to more valve work on hot path.
-
-7) Decision status
-- Release rollback request: DONE
-- Baseline fixation (TX=1 / Valve=1): DONE
+메모:
+- 동일 조건에서도 run variance가 큼 (run1 tail 악화, run2 양호).
+- 요청하신 평가 기준(초기 10초 제외 + 동적 setpoint)으로는 현재 빌드가 경계선 수준임.

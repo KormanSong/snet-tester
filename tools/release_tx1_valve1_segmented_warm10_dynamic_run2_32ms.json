@@ -1,0 +1,144 @@
+﻿{
+  "run_condition": {
+    "mock_mode": false,
+    "port": "COM1",
+    "channels": 5,
+    "ratios": [
+      20.0,
+      40.0,
+      60.0,
+      80.0,
+      100.0
+    ],
+    "sample_period_s": 0.032,
+    "render_fps_cap": 60,
+    "duration_s": 30.5,
+    "warmup_s": 10.0,
+    "diag_mode": "normal",
+    "ratio_sequence": [
+      [
+        20.0,
+        40.0,
+        60.0,
+        80.0,
+        100.0
+      ],
+      [
+        80.0,
+        60.0,
+        40.0,
+        20.0,
+        10.0
+      ],
+      [
+        10.0,
+        30.0,
+        50.0,
+        70.0,
+        90.0
+      ],
+      [
+        90.0,
+        70.0,
+        50.0,
+        30.0,
+        10.0
+      ],
+      [
+        50.0,
+        50.0,
+        50.0,
+        50.0,
+        50.0
+      ]
+    ],
+    "ratio_change_interval_s": 5.0,
+    "ratio_sequence_applied_count": 7
+  },
+  "metrics": {
+    "avg_fps": 58.612143347775444,
+    "low_1pct_fps": 38.94432990970298,
+    "drop_pct": 28.56356631810677,
+    "drop_below_40fps_pct": 0.3852504127682994,
+    "drop_below_30fps_pct": 0.0550357732526142,
+    "drop_below_40fps_threshold_ms": 25.0,
+    "drop_below_30fps_threshold_ms": 33.333333333333336,
+    "drop_threshold_ms": 17.5,
+    "p999_ms": 30.57580004679039,
+    "p9999_ms": 36.51209996314719,
+    "worst_ms": 36.51209996314719,
+    "frame_samples": 1817
+  },
+  "render_metrics": {
+    "avg_fps": 58.612143347775444,
+    "low_1pct_fps": 38.94432990970298,
+    "drop_pct": 28.56356631810677,
+    "drop_below_40fps_pct": 0.3852504127682994,
+    "drop_below_30fps_pct": 0.0550357732526142,
+    "drop_below_40fps_threshold_ms": 25.0,
+    "drop_below_30fps_threshold_ms": 33.333333333333336,
+    "drop_threshold_ms": 17.5,
+    "p999_ms": 30.57580004679039,
+    "p9999_ms": 36.51209996314719,
+    "worst_ms": 36.51209996314719,
+    "frame_samples": 1817
+  },
+  "data_frame_metrics": {
+    "avg_fps": 29.7782088003503,
+    "low_1pct_fps": 18.915223290954472,
+    "drop_pct": 80.04338394793926,
+    "drop_below_40fps_pct": 83.29718004338395,
+    "drop_below_30fps_pct": 71.25813449023862,
+    "drop_below_40fps_threshold_ms": 25.0,
+    "drop_below_30fps_threshold_ms": 33.333333333333336,
+    "drop_threshold_ms": 32.5,
+    "p999_ms": 58.43940004706383,
+    "p9999_ms": 58.43940004706383,
+    "worst_ms": 58.43940004706383,
+    "frame_samples": 922
+  },
+  "setdata_counts": {
+    "tx": [
+      923,
+      923,
+      923,
+      923,
+      923,
+      0
+    ],
+    "rx": [
+      923,
+      923,
+      923,
+      923,
+      923,
+      0
+    ],
+    "valve": [
+      765,
+      765,
+      765,
+      765,
+      765,
+      0
+    ]
+  },
+  "channel_sync_skew": {
+    "tx": 0,
+    "rx": 0,
+    "valve": 0
+  },
+  "load_shed_counters": {
+    "tx_deferred": 0.0,
+    "tx_dropped": 0.0,
+    "tx_rendered": 0.0,
+    "tx_force_immediate": 0.0,
+    "tx_render_cost_ema_ms": 0.0,
+    "valve_deferred": 923.0,
+    "valve_dropped": 159.0,
+    "valve_rendered": 765.0,
+    "valve_render_cost_ema_ms": 0.33189140526685357
+  },
+  "tx_dirty_counts": null,
+  "tx_skip_ratio_pct_total": null
+}
